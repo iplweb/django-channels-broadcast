@@ -41,3 +41,30 @@ db.sqlite3*
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+._*
+.AppleDouble
+.LSOverride
+
+# Secrets / credentials — never commit
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+credentials.json
+credentials.yaml
+credentials.yml
+service-account*.json
+secrets.yaml
+secrets.yml
