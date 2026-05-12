@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "channels",
     "channels_notifications",
+    "demo_app",
 ]
 
 MIDDLEWARE = [

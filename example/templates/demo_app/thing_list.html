@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Things — demo</title>
+<style>
+  body { font-family: sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
+  a { display: block; padding: 0.4em 0; }
+</style>
+</head>
+<body>
+<h1>Demo "Things"</h1>
+<p><a href="{% url 'home' %}">← back to the broadcast demo</a></p>
+<p>Each Thing has its own websocket channel. Open one in a browser tab and
+send a message to it from the home page's "object" audience selector.</p>
+<ul>
+{% for thing in object_list %}
+  <li><a href="{% url 'demo_app:thing-detail' thing.pk %}">{{ thing.name }} (pk={{ thing.pk }})</a></li>
+{% empty %}
+  <li><em>No Things yet. Create some at <a href="/admin/demo_app/thing/add/">/admin/demo_app/thing/add/</a></em></li>
+{% endfor %}
+</ul>
+</body>
+</html>

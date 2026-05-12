@@ -21,6 +21,11 @@
 <p>Open this page in two tabs (one logged in via /admin, one anonymous)
    to see audience routing in action.</p>
 
+<p>For the per-page channel demo, also open <a href="{% url 'demo_app:thing-list' %}">/things/</a>
+in a third tab and pick a Thing — that page subscribes to a channel
+named after the object's <code>ContentType</code> + pk, and only receives
+messages sent to that exact channel.</p>
+
 <form method="post" action="{% url 'send' %}">
   {% csrf_token %}
   <fieldset>
@@ -31,9 +36,21 @@
         <option value="authenticated">authenticated (logged-in only)</option>
         <option value="anonymous">anonymous (not logged-in)</option>
         <option value="user">specific user</option>
+        <option value="object">object (single page subscribed to a Thing)</option>
       </select>
     </label>
     <label>Username (only for "user"): <input type="text" name="username"></label>
+    <label>Thing PK (only for "object"):
+      <select name="thing_pk">
+        <option value="">— pick one —</option>
+        {% for t in things %}
+          <option value="{{ t.pk }}">{{ t.pk }} — {{ t.name }}</option>
+        {% endfor %}
+      </select>
+      {% if not things %}
+        <em>No Things yet — create some at <a href="/admin/demo_app/thing/add/">/admin/demo_app/thing/add/</a>, then open <a href="{% url 'demo_app:thing-list' %}">/things/</a>.</em>
+      {% endif %}
+    </label>
     <label>Level:
       <select name="level">
         <option value="info">info</option>

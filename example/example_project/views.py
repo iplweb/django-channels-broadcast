@@ -8,12 +8,15 @@ from channels_notifications import (
     send_to_all,
     send_to_anonymous,
     send_to_authenticated,
+    send_to_object,
     send_to_user,
 )
 
 
 def home(request):
-    return render(request, "home.html")
+    from demo_app.models import Thing
+
+    return render(request, "home.html", {"things": Thing.objects.all()})
 
 
 @require_POST
@@ -37,5 +40,16 @@ def send(request):
                 pass
             else:
                 send_to_user(user, text, level=level)
+    elif audience == "object":
+        from demo_app.models import Thing
+
+        thing_pk = request.POST.get("thing_pk")
+        if thing_pk:
+            try:
+                thing = Thing.objects.get(pk=thing_pk)
+            except (Thing.DoesNotExist, ValueError):
+                pass
+            else:
+                send_to_object(thing, text, level=level)
 
     return HttpResponseRedirect(reverse("home"))

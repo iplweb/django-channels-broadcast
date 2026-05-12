@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ object.name }} — per-page channel demo</title>
+<style>
+  body { font-family: sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
+  .channel { font-family: monospace; background: #eee; padding: 0.2em 0.4em; border-radius: 3px; }
+  #messages { padding: 0.5em; border: 1px dashed #aaa; min-height: 4em; margin-top: 1em; }
+  .msg { padding: 0.5em; margin: 0.3em 0; border-radius: 4px; }
+  .msg.info { background: #def; }
+  .msg.success { background: #dfd; }
+  .msg.warning { background: #ffd; }
+  .msg.error { background: #fdd; }
+</style>
+</head>
+<body>
+<h1>{{ object.name }}</h1>
+<p><a href="{% url 'demo_app:thing-list' %}">← back to list</a></p>
+
+<p>This page is subscribed to a per-object channel. Mixin
+<code>ChannelSubscriberSingleObjectMixin</code> placed the channel name
+in context as <code>extraChannels</code>:</p>
+
+{# extraChannels is the list rendered by ChannelSubscriberMixin.       #}
+{# In real apps you typically json_script it; for the demo a simple    #}
+{# <script type="application/json"> tag is enough.                     #}
+<p>Channel for this page:
+{% for ch in extraChannels %}<span class="channel">{{ ch }}</span>{% endfor %}
+</p>
+
+<p>From the <a href="{% url 'home' %}">home page</a> pick audience
+"<strong>object</strong>" and enter PK <code>{{ object.pk }}</code> to send
+a message that lands here only (not on the list, not on /, not on other
+detail pages).</p>
+
+<h2>Incoming for this page:</h2>
+<div id="messages"></div>
+
+{{ extraChannels|json_script:"extra-channels" }}
+
+<script>
+  // Pick up the per-page channel(s) the view subscribed us to.
+  var raw = document.getElementById("extra-channels").textContent;
+  var extraChannels = JSON.parse(raw || "[]");
+
+  var proto = (window.location.protocol === "https:" ? "wss:" : "ws:");
+  var url = proto + "//" + window.location.host + "/asgi/notifications/";
+  if (extraChannels && extraChannels.length) {
+    url += "?extraChannels=" + encodeURIComponent(JSON.stringify(extraChannels));
+  }
+
+  var ws = new WebSocket(url);
+  ws.onmessage = function (event) {
+    var data = JSON.parse(event.data);
+    var div = document.createElement("div");
+    div.className = "msg " + (data.cssClass || "info");
+    div.textContent = data.text || JSON.stringify(data);
+    document.getElementById("messages").prepend(div);
+  };
+  ws.onopen = function () { console.log("ws connected with extraChannels=", extraChannels); };
+  ws.onclose = function () { console.log("ws closed"); };
+</script>
+</body>
+</html>
