@@ -33,8 +33,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 80 unit + ASGI integration tests covering audience routing, flag
   enforcement, redirect/progress payloads, authorizer hook, and
   signed-token subscription including tampered/expired/cross-user cases.
+- 22 QUnit + sinon frontend tests run via Node (`npm test`) using
+  jsdom — covering the default Mustache renderer, redirect / progress
+  payload handling, ACK behaviour, the chime hook, and the Toastify
+  integration with stubbed Toastify.
+- Optional opt-in JS plugins: `notifications-toastify.js` (right-side
+  toast popups via Toastify, ~3KB) and `notifications-chime.js`
+  (four-note arpeggio via Tone.js, user-gesture deferred).
 - Example project demonstrates all five audience modes plus the
   authorizer (owner-only) and signed-token UID flows.
+
+### Changed
+
+- JS global renamed from `bppNotifications` to `channelsBroadcast` for
+  the public package. Existing payload shapes (`{text, cssClass, ...}`,
+  `{url}`, `{progress, percent}`) and Mustache template contract
+  unchanged.
+- Tone.js audio code extracted out of `notifications.js` into an
+  optional sibling `notifications-chime.js`. Core `notifications.js`
+  no longer depends on Tone.js being loaded.
 
 ### Removed
 

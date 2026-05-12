@@ -311,6 +311,81 @@ already do this — read the source for the wiring.
 ./manage.py send_notification --audience=user --username=alice "Hi Alice"
 ```
 
+## Frontend integration
+
+Three JS files ship under `static/channels_notifications/js/`:
+
+| File | What it does |
+|---|---|
+| `notifications.js` | Required. Opens the websocket; dispatches incoming `{text}` / `{url}` / `{progress, percent}` payloads. Default text rendering uses jQuery + Mustache to append to `#messagesPlaceholder`. Falls back to vanilla-JS DOM if neither is available. Exposes `window.channelsBroadcast`. |
+| `notifications-toastify.js` | Optional. Calls `channelsBroadcast.useToastify({...})` to swap the default appender for right-side toast popups via [Toastify](https://github.com/apvarun/toastify-js) (~3KB, MIT). Redirects and progress payloads keep working unchanged. |
+| `notifications-chime.js` | Optional. Plays a four-note arpeggio on each incoming message via [Tone.js](https://tonejs.github.io/). Calls `channelsBroadcast.enableChime()` after `init()` to install the hook. Defers audio context until first user gesture (browser autoplay policies). |
+
+### Default — inline Foundation/Bootstrap-style alerts
+
+```html
+{% load static %}
+<div id="messagesPlaceholder"></div>
+<script id="messageTemplate" type="text/x-template">{# Mustache template #}
+  <div class="callout {{ cssClass }}">{{ text }}</div>
+</script>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="{% static 'channels_notifications/js/mustache.js' %}"></script>
+<script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
+<script>
+  channelsBroadcast.init({{ extraChannels|default:"null"|json_script:"" }});
+</script>
+```
+
+### Pretty mode — right-side toasts (Toastify)
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.css">
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
+<script src="{% static 'channels_notifications/js/notifications-toastify.js' %}"></script>
+<script>
+  channelsBroadcast.useToastify({duration: 4000, gravity: "top", position: "right"});
+  channelsBroadcast.init();
+</script>
+```
+
+After `useToastify()`, any `send_to_*("text...")` call appears as a sliding toast in the top-right (default — `position` and `gravity` are configurable). The `cssClass` field maps to a per-level gradient; override with `classMap`.
+
+### Audio chime (Tone.js)
+
+```html
+<script src="https://unpkg.com/tone@15/build/Tone.js"></script>
+<script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
+<script src="{% static 'channels_notifications/js/notifications-chime.js' %}"></script>
+<script>
+  channelsBroadcast.init();
+  channelsBroadcast.enableChime();
+</script>
+```
+
+### Wire format (for writing your own client)
+
+The server sends one JSON object per websocket frame:
+
+```js
+// message:
+{"text": "...", "cssClass": "info"|"success"|"warning"|"error",
+ "clickURL": "...", "closeURL": "...", "hideCloseOption": false}
+
+// redirect:
+{"url": "/results/"}
+
+// progress:
+{"progress": true, "percent": "42%"}
+```
+
+If `id` is present, the server expects the client to ACK with
+`{"type": "ack_message", "id": <id>}` so it doesn't replay this
+`Notification` row on the next reconnect. The bundled JS does this for
+you.
+
 ## Supported versions
 
 ### Python × Django (tested in CI)
@@ -337,7 +412,8 @@ so those cells are intentionally blank.)
 git clone https://github.com/iplweb/django-channels-broadcast
 cd django-channels-broadcast
 uv sync --all-extras
-DJANGO_SETTINGS_MODULE=tests.settings uv run pytest
+DJANGO_SETTINGS_MODULE=tests.settings uv run pytest    # Python tests
+npm install && npm test                                # JS tests (QUnit + sinon + jsdom)
 ```
 
 Pre-commit:

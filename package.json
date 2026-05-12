@@ -1,0 +1,17 @@
+{
+  "name": "django-channels-broadcast",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JS test harness for django-channels-broadcast. The Python package itself is published to PyPI; this package.json exists only to install QUnit/sinon/jsdom for `npm test`.",
+  "license": "MIT",
+  "scripts": {
+    "test": "qunit --require ./tests/js/setup.js tests/js/test_notifications.js tests/js/test_toastify.js"
+  },
+  "devDependencies": {
+    "jquery": "^3.7.1",
+    "jsdom": "^25.0.1",
+    "mustache": "^4.2.0",
+    "qunit": "^2.22.0",
+    "sinon": "^19.0.2"
+  }
+}

@@ -1,147 +1,119 @@
-// Explicitly use window to ensure global scope even in IIFE bundles
-window.bppNotifications = window.bppNotifications || {};
+/**
+ * channels_notifications — vanilla JS + jQuery client.
+ *
+ * Exposes `window.channelsBroadcast` with:
+ *   .init(extraChannels, opts)   — opens the websocket; subscribes
+ *   .addMessage(message)         — dispatch one incoming payload
+ *   .onmessage(event)            — websocket onmessage handler (ACKs + addMessage)
+ *   .goTo(url)                   — internal: navigate the browser
+ *
+ * Recognised payload shapes (server-side functions that produce them):
+ *   {text, cssClass, ...}        send_to_*       — rendered as a message
+ *   {url}                        redirect_*      — navigates the page
+ *   {progress: true, percent}    progress_*      — updates #notifications-progress
+ *
+ * Optional hooks (assign before .init()):
+ *   onChime(message)             — called when a message arrives (e.g. Tone.js)
+ *   render(message)              — replace the default Mustache append
+ *
+ * Plugins can override `addMessage` entirely — see notifications-toastify.js
+ * for an opt-in right-side toast renderer.
+ */
+window.channelsBroadcast = window.channelsBroadcast || {};
 
-window.bppNotifications.init = function (extraChannels) {
-    // Initialize Tone.js synth for notifications
-    this.synth = null;
-    this.toneInitialized = false;
+window.channelsBroadcast.init = function (extraChannels, opts) {
+    opts = opts || {};
+    var self = this;
 
-    // Setup one-time click listener to initialize Tone.js on user interaction
-    var initToneOnClick = function() {
-        if (!window.bppNotifications.toneInitialized) {
-            Tone.start().then(function() {
-                window.bppNotifications.synth = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "sine" },
-                    envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.8 }
-                }).toDestination();
-                window.bppNotifications.synth.volume.value = -14; // 50% quieter volume
-                window.bppNotifications.toneInitialized = true;
-                console.info('Audio context initialized');
-            }).catch(function(err) {
-                console.warn('Could not initialize audio context:', err);
-            });
-        }
-        // Remove the listener after first click
-        document.removeEventListener('click', initToneOnClick);
-        document.removeEventListener('keydown', initToneOnClick);
-    };
-
-    // Add listeners for user interaction
-    document.addEventListener('click', initToneOnClick);
-    document.addEventListener('keydown', initToneOnClick);
-
-    var url = (window.location.protocol == "https:" ? "wss:" : "ws:");
-
-    url += "//" + window.location.host + '/asgi/notifications/';
-    if (extraChannels)
-        url += '?extraChannels=' + encodeURIComponent(extraChannels);
+    var proto = (window.location.protocol === "https:" ? "wss:" : "ws:");
+    var url = proto + "//" + window.location.host + "/asgi/notifications/";
+    var params = [];
+    if (extraChannels) {
+        params.push("extraChannels=" + encodeURIComponent(extraChannels));
+    }
+    if (opts.subscriptionToken) {
+        params.push("subscription_token=" + encodeURIComponent(opts.subscriptionToken));
+    }
+    if (params.length) {
+        url += "?" + params.join("&");
+    }
 
     this.chatSocket = new WebSocket(url);
-
-    this.chatSocket.onmessage = this.onmessage;
-
-    this.chatSocket.onopen = function (e) {
-        console.info('Chat available');
-    };
-
-    this.chatSocket.onclose = function (e) {
-        console.info('Chat socket closed');
-    };
-
-    this.chatSocket.onerror = function (e) {
-        console.log('error');
-    };
+    this.chatSocket.onmessage = function (e) { self.onmessage(e); };
+    this.chatSocket.onopen    = function () { console.info("channels_notifications: connected"); };
+    this.chatSocket.onclose   = function () { console.info("channels_notifications: closed"); };
+    this.chatSocket.onerror   = function () { console.warn("channels_notifications: error"); };
 
     window.addEventListener("unload", function () {
-        if (window.bppNotifications.chatSocket.readyState == WebSocket.OPEN)
-            window.bppNotifications.chatSocket.close();
+        if (self.chatSocket && self.chatSocket.readyState === WebSocket.OPEN) {
+            self.chatSocket.close();
+        }
     });
 };
 
-window.bppNotifications.goTo = function (url) {
+window.channelsBroadcast.goTo = function (url) {
     window.location.href = url;
 };
 
-window.bppNotifications.onmessage = function (event) {
-    // console.log(event);
-    var message = JSON.parse(event.data);
-
-    if (message['id']) {
-        window.bppNotifications.chatSocket.send(
-            JSON.stringify({
-                "id": message["id"],
-                "type": "ack_message",
-                "channel_name": event['channel_name']
-            }));
+window.channelsBroadcast.onmessage = function (event) {
+    var message;
+    try {
+        message = JSON.parse(event.data);
+    } catch (e) {
+        console.warn("channels_notifications: bad payload", event.data);
+        return;
     }
-    ;
 
+    // ACK persistent Notification rows so the server doesn't replay them on reconnect.
+    if (message.id && this.chatSocket && this.chatSocket.readyState === WebSocket.OPEN) {
+        this.chatSocket.send(JSON.stringify({
+            type: "ack_message",
+            id: message.id,
+            channel_name: event.channel_name,
+        }));
+    }
 
-    window.bppNotifications.addMessage(message);
-}
+    this.addMessage(message);
+};
 
-window.bppNotifications.playChime = function() {
-    // Only play if Tone.js is initialized
-    if (!this.toneInitialized) {
-        // Try to initialize on notification if user hasn't clicked yet
-        if (typeof Tone !== 'undefined') {
-            Tone.start().then(function() {
-                window.bppNotifications.synth = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "sine" },
-                    envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.8 }
-                }).toDestination();
-                window.bppNotifications.synth.volume.value = -14; // 50% quieter volume
-                window.bppNotifications.toneInitialized = true;
+window.channelsBroadcast.addMessage = function (message) {
+    // Three known payload families:
+    if (message.text) {
+        // Message: append via Mustache template (#messageTemplate -> #messagesPlaceholder)
+        var $ph = (typeof $ !== "undefined") ? $("#messagesPlaceholder") : null;
+        if ($ph && $ph.length) {
+            $ph.append(Mustache.render($("#messageTemplate").html(), message));
+        } else if (typeof document !== "undefined") {
+            // Minimal vanilla-JS fallback if jQuery/Mustache aren't present.
+            var ph = document.getElementById("messagesPlaceholder");
+            if (ph) {
+                var div = document.createElement("div");
+                div.className = "msg " + (message.cssClass || "info");
+                div.textContent = message.text;
+                ph.appendChild(div);
+            }
+        }
 
-                // Play the chime after initialization
-                var now = Tone.now();
-                window.bppNotifications.synth.triggerAttackRelease("C5", 0.1, now);
-                window.bppNotifications.synth.triggerAttackRelease("E5", 0.1, now + 0.05);
-                window.bppNotifications.synth.triggerAttackRelease("G5", 0.1, now + 0.1);
-                window.bppNotifications.synth.triggerAttackRelease("C6", 0.15, now + 0.15);
-            }).catch(function(err) {
-                // Silently fail if audio context can't be started
-                console.debug('Audio context not available:', err);
-            });
+        if (typeof this.onChime === "function" && message.sound !== false) {
+            try { this.onChime(message); }
+            catch (e) { console.debug("channels_notifications: onChime threw", e); }
         }
         return;
     }
 
-    // Play the chime sequence
-    try {
-        var now = Tone.now();
-        this.synth.triggerAttackRelease("C5", 0.1, now);
-        this.synth.triggerAttackRelease("E5", 0.1, now + 0.05);
-        this.synth.triggerAttackRelease("G5", 0.1, now + 0.1);
-        this.synth.triggerAttackRelease("C6", 0.15, now + 0.15);
-    } catch(err) {
-        console.debug('Could not play notification sound:', err);
-    }
-};
-
-window.bppNotifications.addMessage = function (message) {
-    // Uzywane atrybuty z message:
-    //  - cssClass,
-    //  - closeURL,
-    //  - closeText,
-    //  - clickURL,
-    //  - hideCloseOption,
-    //  - text;
-
-    if (message['text']) {
-        $("#messagesPlaceholder").append(
-            Mustache.render(
-                $("#messageTemplate").html(),
-                message)
-        );
-
-        if (message['sound'] != false)
-            window.bppNotifications.playChime();
-
-    } else if (message['url']) {
-        window.bppNotifications.goTo(message['url']);
-    } else if (message['progress']) {
-        $("#notifications-progress").css("width", message['percent']);
+    if (message.url) {
+        this.goTo(message.url);
+        return;
     }
 
+    if (message.progress) {
+        var bar = (typeof $ !== "undefined") ? $("#notifications-progress") : null;
+        if (bar && bar.length) {
+            bar.css("width", message.percent);
+        } else if (typeof document !== "undefined") {
+            var el = document.getElementById("notifications-progress");
+            if (el) { el.style.width = message.percent; }
+        }
+        return;
+    }
 };

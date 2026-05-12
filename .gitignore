@@ -29,6 +29,9 @@ coverage.xml
 # uv (library — do not commit lockfile)
 uv.lock
 
+# Node / npm
+node_modules/
+
 # Local DBs / artifacts
 *.sqlite3
 *.sqlite3-journal
