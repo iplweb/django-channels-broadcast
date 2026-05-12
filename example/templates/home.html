@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>channels_notifications — demo</title>
+<style>
+  body { font-family: sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
+  fieldset { margin: 1em 0; padding: 1em; }
+  label { display: block; margin: 0.4em 0; }
+  #messages { padding: 0.5em; border: 1px dashed #aaa; min-height: 4em; }
+  .msg { padding: 0.5em; margin: 0.3em 0; border-radius: 4px; }
+  .msg.info { background: #def; }
+  .msg.success { background: #dfd; }
+  .msg.warning { background: #ffd; }
+  .msg.error { background: #fdd; }
+</style>
+</head>
+<body>
+<h1>channels_notifications — demo</h1>
+
+<p>Open this page in two tabs (one logged in via /admin, one anonymous)
+   to see audience routing in action.</p>
+
+<form method="post" action="{% url 'send' %}">
+  {% csrf_token %}
+  <fieldset>
+    <legend>Send a notification</legend>
+    <label>Audience:
+      <select name="audience">
+        <option value="all">all (everyone)</option>
+        <option value="authenticated">authenticated (logged-in only)</option>
+        <option value="anonymous">anonymous (not logged-in)</option>
+        <option value="user">specific user</option>
+      </select>
+    </label>
+    <label>Username (only for "user"): <input type="text" name="username"></label>
+    <label>Level:
+      <select name="level">
+        <option value="info">info</option>
+        <option value="success">success</option>
+        <option value="warning">warning</option>
+        <option value="error">error</option>
+      </select>
+    </label>
+    <label>Text: <input type="text" name="text" value="hello"></label>
+    <button type="submit">Send</button>
+  </fieldset>
+</form>
+
+<h2>Incoming notifications:</h2>
+<div id="messages"></div>
+
+<script>
+  var url = (window.location.protocol === "https:" ? "wss:" : "ws:");
+  url += "//" + window.location.host + "/asgi/notifications/";
+  var ws = new WebSocket(url);
+  ws.onmessage = function (event) {
+    var data = JSON.parse(event.data);
+    var div = document.createElement("div");
+    div.className = "msg " + (data.cssClass || "info");
+    div.textContent = data.text || JSON.stringify(data);
+    document.getElementById("messages").prepend(div);
+  };
+  ws.onopen = function () { console.log("ws connected"); };
+  ws.onclose = function () { console.log("ws closed"); };
+</script>
+</body>
+</html>
