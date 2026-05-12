@@ -1,4 +1,4 @@
-# Example project for `django-channels-notifications`
+# Example project for `django-channels-broadcast`
 
 Minimal Django project showing every audience mode.
 

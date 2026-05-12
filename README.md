@@ -1,4 +1,4 @@
-# django-channels-notifications
+# django-channels-broadcast
 
 Pluggable websocket notifications for Django. Send realtime messages to:
 
@@ -15,7 +15,7 @@ websocket at all).
 ## Installation
 
 ```bash
-pip install django-channels-notifications
+pip install django-channels-broadcast
 ```
 
 Add to `INSTALLED_APPS`:
@@ -128,8 +128,8 @@ already do this — read the source for the wiring.
 ## Development
 
 ```bash
-git clone https://github.com/iplweb/django-channels-notifications
-cd django-channels-notifications
+git clone https://github.com/iplweb/django-channels-broadcast
+cd django-channels-broadcast
 uv sync --all-extras
 DJANGO_SETTINGS_MODULE=tests.settings uv run pytest
 ```

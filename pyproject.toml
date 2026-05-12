@@ -3,7 +3,7 @@ requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "django-channels-notifications"
+name = "django-channels-broadcast"
 version = "0.1.0"
 description = "Pluggable websocket notifications for Django: broadcast to all, authenticated, anonymous, single user, or per-object page channels — each gated by a setting."
 readme = "README.md"
@@ -53,9 +53,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/iplweb/django-channels-notifications"
-Repository = "https://github.com/iplweb/django-channels-notifications"
-Issues = "https://github.com/iplweb/django-channels-notifications/issues"
+Homepage = "https://github.com/iplweb/django-channels-broadcast"
+Repository = "https://github.com/iplweb/django-channels-broadcast"
+Issues = "https://github.com/iplweb/django-channels-broadcast/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
