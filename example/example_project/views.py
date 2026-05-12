@@ -1,9 +1,8 @@
 import time
 
 from django.contrib.auth import get_user_model
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse
 from django.shortcuts import render
-from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from channels_notifications import (
@@ -25,6 +24,7 @@ def home(request):
 
 @require_POST
 def send(request):
+    """AJAX endpoint posted by home.html. Returns 204 so the page stays put."""
     audience = request.POST.get("audience", "all")
     text = request.POST.get("text", "(no text)")
     level = request.POST.get("level", "info")
@@ -56,7 +56,7 @@ def send(request):
             else:
                 send_to_object(thing, text, level=level)
 
-    return HttpResponseRedirect(reverse("home"))
+    return HttpResponse(status=204)
 
 
 @require_POST

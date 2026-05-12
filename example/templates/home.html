@@ -7,6 +7,58 @@
   body { font-family: sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
   fieldset { margin: 1em 0; padding: 1em; }
   label { display: block; margin: 0.4em 0; }
+  button { font-size: 1em; padding: 0.4em 1em; cursor: pointer; }
+
+  /* Prominent how-to-demo banner */
+  .demo-howto {
+      background: #fff4d6;
+      border: 2px solid #e0a800;
+      border-radius: 8px;
+      padding: 1em 1.2em;
+      margin: 1em 0;
+  }
+  .demo-howto h2 { margin: 0 0 0.5em; font-size: 1.1em; color: #6b4d00; }
+  .demo-howto ol { margin: 0; padding-left: 1.3em; }
+  .demo-howto li { margin: 0.3em 0; }
+  .demo-howto code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 3px; }
+
+  /* "Who am I" badge */
+  .identity {
+      display: inline-block;
+      padding: 0.25em 0.7em;
+      border-radius: 999px;
+      font-size: 0.9em;
+      margin-left: 0.5em;
+  }
+  .identity.auth { background: #d6f0ff; color: #064b6b; }
+  .identity.anon { background: #f3e8ff; color: #4a1f7a; }
+
+  /* Connection state pill */
+  #conn-state {
+      display: inline-block;
+      padding: 0.15em 0.6em;
+      border-radius: 999px;
+      font-size: 0.8em;
+      background: #eee;
+      margin-left: 0.5em;
+  }
+  #conn-state.open { background: #d6f5d6; color: #054b1d; }
+  #conn-state.reconnecting,
+  #conn-state.connecting { background: #fff3bf; color: #5a4500; }
+  #conn-state.closed,
+  #conn-state.failed { background: #ffd6d6; color: #5e0e0e; }
+
+  /* Status flash for "sent" feedback */
+  #send-flash {
+      display: inline-block;
+      margin-left: 1em;
+      opacity: 0;
+      transition: opacity 0.2s;
+      color: #064b6b;
+      font-size: 0.9em;
+  }
+  #send-flash.shown { opacity: 1; }
+
   #messages { padding: 0.5em; border: 1px dashed #aaa; min-height: 4em; }
   .msg { padding: 0.5em; margin: 0.3em 0; border-radius: 4px; }
   .msg.info { background: #def; }
@@ -16,21 +68,37 @@
 </style>
 </head>
 <body>
-<h1>channels_notifications — demo</h1>
 
-<p>Open this page in two tabs (one logged in via /admin, one anonymous)
-   to see audience routing in action.</p>
+<h1>channels_notifications — demo
+  {% if request.user.is_authenticated %}
+    <span class="identity auth">logged in as {{ request.user.username }}</span>
+  {% else %}
+    <span class="identity anon">anonymous</span>
+  {% endif %}
+  <span id="conn-state">…</span>
+</h1>
 
-<p>Two extra demos available:</p>
-<ul>
-  <li><a href="{% url 'demo_app:thing-list' %}">/things/</a> —
-      per-object channels gated by the authorizer
-      (only Thing.owner may subscribe).</li>
-  <li><a href="{% url 'demo_app:uid-stream' %}">/things/uid-stream/</a> —
-      signed-token UID subscription (auth required).</li>
-</ul>
+<aside class="demo-howto">
+  <h2>📋 How to see the routing in action</h2>
+  <ol>
+    <li>Open <strong>this same URL in a second window or incognito tab</strong>
+        so you have one authenticated session and one anonymous session
+        side-by-side. (Create a user at
+        <a href="/admin/" target="_blank">/admin/</a> if you haven't.)</li>
+    <li>Pick an audience in the form below, type a message, hit
+        <em>Send</em>. The page <strong>will not reload</strong> — the
+        message arrives over the websocket and is appended below.</li>
+    <li>Compare which tab(s) actually receive the message. That's the
+        whole library.</li>
+  </ol>
+  <p style="margin: 0.6em 0 0; font-size: 0.92em;">
+    For the per-page and signed-token demos, also open:
+    <a href="{% url 'demo_app:thing-list' %}" target="_blank">/things/</a> ·
+    <a href="{% url 'demo_app:uid-stream' %}" target="_blank">/things/uid-stream/</a>
+  </p>
+</aside>
 
-<form method="post" action="{% url 'send' %}">
+<form id="send-form">
   {% csrf_token %}
   <fieldset>
     <legend>Send a notification</legend>
@@ -52,7 +120,7 @@
         {% endfor %}
       </select>
       {% if not things %}
-        <em>No Things yet — create some at <a href="/admin/demo_app/thing/add/">/admin/demo_app/thing/add/</a>, then open <a href="{% url 'demo_app:thing-list' %}">/things/</a>.</em>
+        <em>No Things yet — create some at <a href="/admin/demo_app/thing/add/" target="_blank">/admin/demo_app/thing/add/</a>, then open <a href="{% url 'demo_app:thing-list' %}" target="_blank">/things/</a>.</em>
       {% endif %}
     </label>
     <label>Level:
@@ -65,25 +133,67 @@
     </label>
     <label>Text: <input type="text" name="text" value="hello"></label>
     <button type="submit">Send</button>
+    <span id="send-flash">✓ sent</span>
   </fieldset>
 </form>
 
-<h2>Incoming notifications:</h2>
+<h2>Incoming notifications on <em>this</em> tab:</h2>
 <div id="messages"></div>
 
 <script>
-  var url = (window.location.protocol === "https:" ? "wss:" : "ws:");
-  url += "//" + window.location.host + "/asgi/notifications/";
-  var ws = new WebSocket(url);
-  ws.onmessage = function (event) {
-    var data = JSON.parse(event.data);
-    var div = document.createElement("div");
-    div.className = "msg " + (data.cssClass || "info");
-    div.textContent = data.text || JSON.stringify(data);
-    document.getElementById("messages").prepend(div);
-  };
-  ws.onopen = function () { console.log("ws connected"); };
-  ws.onclose = function () { console.log("ws closed"); };
+  // ----- websocket -----
+  var connState = document.getElementById("conn-state");
+  function setState(s) {
+      connState.textContent = s;
+      connState.className = s;
+  }
+
+  var proto = (window.location.protocol === "https:" ? "wss:" : "ws:");
+  var url = proto + "//" + window.location.host + "/asgi/notifications/";
+  setState("connecting");
+
+  function connect() {
+      var ws = new WebSocket(url);
+      ws.onopen = function () { setState("open"); };
+      ws.onclose = function () {
+          setState("closed");
+          // reconnect after 2s — simple, no backoff (this is the demo,
+          // not the production channelsBroadcast.init() client)
+          setTimeout(connect, 2000);
+      };
+      ws.onerror = function () { setState("failed"); };
+      ws.onmessage = function (event) {
+          var data = JSON.parse(event.data);
+          var div = document.createElement("div");
+          div.className = "msg " + (data.cssClass || "info");
+          div.textContent = data.text || JSON.stringify(data);
+          document.getElementById("messages").prepend(div);
+      };
+  }
+  connect();
+
+  // ----- form: AJAX submit, no page reload -----
+  var form = document.getElementById("send-form");
+  var flash = document.getElementById("send-flash");
+
+  form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var fd = new FormData(form);
+      fetch("{% url 'send' %}", {
+          method: "POST",
+          body: fd,
+          credentials: "same-origin",
+      }).then(function (r) {
+          if (!r.ok) {
+              console.warn("send returned " + r.status);
+              return;
+          }
+          flash.classList.add("shown");
+          setTimeout(function () { flash.classList.remove("shown"); }, 1200);
+      }).catch(function (err) {
+          console.warn("send failed", err);
+      });
+  });
 </script>
 </body>
 </html>
