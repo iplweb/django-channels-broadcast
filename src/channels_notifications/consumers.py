@@ -1,9 +1,27 @@
 """WebSocket consumer subscribing each connection to its allowed audiences.
 
-The consumer reads the audience flags from
-:mod:`channels_notifications.settings` and only subscribes to groups that
-are enabled. If anonymous broadcasting is disabled, anonymous connections
-are closed before ``accept()`` — no websocket is opened for them at all.
+The consumer composes the set of channels to join from four sources, in
+order:
+
+1. **Audience groups** derived from ``scope["user"]`` and the
+   ``CHANNELS_NOTIFICATIONS_ENABLE_*`` flags. Always trusted —
+   the auth comes from the Django session cookie.
+
+2. **Per-user channel** (authenticated users only). Always trusted.
+
+3. **``?extraChannels=`` query param** — each channel name is passed
+   through the configured subscription authorizer
+   (``CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER``). Channels the
+   authorizer rejects are silently dropped. Default authorizer denies
+   everything, so this is opt-in.
+
+4. **``?subscription_token=`` query param** — a server-issued, signed
+   token (see ``channels_notifications.security.issue_subscription_token``)
+   that binds a user to a set of channel names. The channels in a valid
+   token are subscribed without consulting the authorizer.
+
+If anonymous broadcasting is disabled, anonymous connections are closed
+before ``.accept()`` — no websocket is opened for them at all.
 """
 
 import json
@@ -15,12 +33,20 @@ from django.utils.functional import cached_property
 
 from channels_notifications import settings as cn_settings
 from channels_notifications.core import get_channel_name_for_user
+from channels_notifications.security import (
+    authorize_extra_channel,
+    verify_subscription_token,
+)
 
 
 class NotificationsConsumer(WebsocketConsumer):
     """Bidirectional websocket. Subscribes on connect, ACKs on incoming JSON."""
 
-    def _channels(self):
+    def _parse_query(self) -> dict:
+        return parse_qs(self.scope.get("query_string", b""))
+
+    def _audience_channels(self):
+        """Channels derived purely from the authenticated identity."""
         user = self.scope.get("user")
         is_auth = bool(user and getattr(user, "is_authenticated", False))
 
@@ -33,15 +59,52 @@ class NotificationsConsumer(WebsocketConsumer):
         elif (not is_auth) and cn_settings.is_anonymous_enabled():
             yield cn_settings.GROUP_ANONYMOUS
 
-        if cn_settings.is_page_channels_enabled():
-            qstr = parse_qs(self.scope.get("query_string", b""))
-            if b"extraChannels" in qstr:
-                for elem in json.loads(qstr[b"extraChannels"][0]):
-                    yield str(elem)
+    def _extra_channels_from_query(self, qstr):
+        """Channels requested via ``?extraChannels=`` that the authorizer permits."""
+        if not cn_settings.is_page_channels_enabled():
+            return
+        if b"extraChannels" not in qstr:
+            return
+        try:
+            requested = json.loads(qstr[b"extraChannels"][0])
+        except (ValueError, IndexError):
+            return
+        user = self.scope.get("user")
+        for elem in requested:
+            name = str(elem)
+            if authorize_extra_channel(user, name):
+                yield name
+
+    def _token_channels_from_query(self, qstr):
+        """Channels carried by a valid signed subscription token."""
+        if not cn_settings.is_page_channels_enabled():
+            return
+        if b"subscription_token" not in qstr:
+            return
+        try:
+            token = qstr[b"subscription_token"][0].decode("utf-8")
+        except (UnicodeDecodeError, IndexError):
+            return
+        user = self.scope.get("user")
+        yield from verify_subscription_token(token, user)
+
+    def _channels(self):
+        qstr = self._parse_query()
+        yield from self._audience_channels()
+        yield from self._extra_channels_from_query(qstr)
+        yield from self._token_channels_from_query(qstr)
 
     @cached_property
     def channels(self):
-        return list(self._channels())
+        # de-dup while preserving order — same channel via multiple sources
+        # should only be joined once.
+        seen = set()
+        result = []
+        for ch in self._channels():
+            if ch not in seen:
+                seen.add(ch)
+                result.append(ch)
+        return result
 
     def subscribe(self):
         for channel in self.channels:
