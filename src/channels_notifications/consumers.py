@@ -49,9 +49,7 @@ class NotificationsConsumer(WebsocketConsumer):
 
     def unsubscribe(self):
         for channel in self.channels:
-            async_to_sync(self.channel_layer.group_discard)(
-                channel, self.channel_name
-            )
+            async_to_sync(self.channel_layer.group_discard)(channel, self.channel_name)
 
     def connect(self):
         user = self.scope.get("user")

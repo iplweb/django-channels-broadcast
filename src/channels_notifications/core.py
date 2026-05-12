@@ -110,4 +110,4 @@ def send_notification(
 
 def send_redirect(specific_channel: str, redirect_url: str):
     """Tell a subscribed page to navigate to ``redirect_url``."""
-    return _send(specific_channel, dict(url=redirect_url))
+    return _send(specific_channel, {"url": redirect_url})

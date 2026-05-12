@@ -50,9 +50,7 @@ def test_on_connect_replays_unacknowledged(monkeypatch):
     )
 
     Notification.objects.create(channel_name="ch", values={"a": 1})
-    Notification.objects.create(
-        channel_name="ch", values={"a": 2}, acknowledged=True
-    )
+    Notification.objects.create(channel_name="ch", values={"a": 2}, acknowledged=True)
     Notification.objects.on_connect(["ch"])
 
     assert len(sent) == 1

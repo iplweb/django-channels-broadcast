@@ -9,7 +9,8 @@ from django.contrib.auth import get_user_model
 from django.test import override_settings
 from model_bakery import baker
 
-from channels_notifications import api, settings as cn_settings
+from channels_notifications import api
+from channels_notifications import settings as cn_settings
 
 
 @pytest.fixture

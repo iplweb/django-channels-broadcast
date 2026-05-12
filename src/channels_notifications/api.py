@@ -38,23 +38,17 @@ def send_to_all(text: str, *, level="info", close_url: str | None = None):
     return _send(cn_settings.GROUP_ALL, _payload(text, level, close_url))
 
 
-def send_to_authenticated(
-    text: str, *, level="info", close_url: str | None = None
-):
+def send_to_authenticated(text: str, *, level="info", close_url: str | None = None):
     """Broadcast a message to every authenticated user.
 
     No-op if ``CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED`` is False.
     """
     if not cn_settings.is_authenticated_enabled():
         return None
-    return _send(
-        cn_settings.GROUP_AUTHENTICATED, _payload(text, level, close_url)
-    )
+    return _send(cn_settings.GROUP_AUTHENTICATED, _payload(text, level, close_url))
 
 
-def send_to_anonymous(
-    text: str, *, level="info", close_url: str | None = None
-):
+def send_to_anonymous(text: str, *, level="info", close_url: str | None = None):
     """Broadcast a message to every anonymous visitor.
 
     No-op if ``CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS`` is False — also,
