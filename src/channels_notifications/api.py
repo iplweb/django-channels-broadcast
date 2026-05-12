@@ -1,10 +1,17 @@
 """High-level audience-routing API.
 
-Each function targets one of five audiences. If the relevant audience flag
-in ``channels_notifications.settings`` is disabled, the call is a no-op
-(returning ``None``) and no message reaches the channel layer. The consumer
-also refuses to subscribe disabled audiences, so the websocket itself is
-either never opened (anonymous gate) or never joined to the disabled group.
+Three payload families, each with the same set of audience targets:
+
+- **Messages** (``send_to_*``) — render as toast/inline notifications.
+- **Redirects** (``redirect_*``) — tell the receiving page to navigate.
+- **Progress** (``progress_*``) — push a progress percent to the page.
+
+Audience targets: ``all``, ``authenticated``, ``anonymous``, ``user``,
+``object``, plus a raw ``channel`` escape hatch.
+
+Each function is a no-op (returning ``None``) when the relevant
+``CHANNELS_NOTIFICATIONS_ENABLE_*`` flag in
+:mod:`channels_notifications.settings` is False.
 """
 
 from django.contrib.messages import constants as message_constants
@@ -18,7 +25,7 @@ from channels_notifications.core import (
 )
 
 
-def _payload(text: str, level: int | str | None, close_url: str | None) -> dict:
+def _message_payload(text: str, level: int | str | None, close_url: str | None) -> dict:
     if isinstance(level, int):
         css_class = message_constants.DEFAULT_TAGS.get(level, "info")
     elif isinstance(level, str):
@@ -28,6 +35,23 @@ def _payload(text: str, level: int | str | None, close_url: str | None) -> dict:
     return Message(text=text, cssClass=css_class, closeURL=close_url)._asdict()
 
 
+def _redirect_payload(url: str) -> dict:
+    return {"url": url}
+
+
+def _progress_payload(percent) -> dict:
+    if isinstance(percent, (int, float)):
+        percent_str = f"{percent}%"
+    elif isinstance(percent, str) and not percent.endswith("%"):
+        percent_str = f"{percent}%"
+    else:
+        percent_str = str(percent)
+    return {"progress": True, "percent": percent_str}
+
+
+# ============================================================ messages
+
+
 def send_to_all(text: str, *, level="info", close_url: str | None = None):
     """Broadcast a message to every connected client (logged-in + anonymous).
 
@@ -35,7 +59,7 @@ def send_to_all(text: str, *, level="info", close_url: str | None = None):
     """
     if not cn_settings.is_all_enabled():
         return None
-    return _send(cn_settings.GROUP_ALL, _payload(text, level, close_url))
+    return _send(cn_settings.GROUP_ALL, _message_payload(text, level, close_url))
 
 
 def send_to_authenticated(text: str, *, level="info", close_url: str | None = None):
@@ -45,7 +69,9 @@ def send_to_authenticated(text: str, *, level="info", close_url: str | None = No
     """
     if not cn_settings.is_authenticated_enabled():
         return None
-    return _send(cn_settings.GROUP_AUTHENTICATED, _payload(text, level, close_url))
+    return _send(
+        cn_settings.GROUP_AUTHENTICATED, _message_payload(text, level, close_url)
+    )
 
 
 def send_to_anonymous(text: str, *, level="info", close_url: str | None = None):
@@ -57,7 +83,7 @@ def send_to_anonymous(text: str, *, level="info", close_url: str | None = None):
     """
     if not cn_settings.is_anonymous_enabled():
         return None
-    return _send(cn_settings.GROUP_ANONYMOUS, _payload(text, level, close_url))
+    return _send(cn_settings.GROUP_ANONYMOUS, _message_payload(text, level, close_url))
 
 
 def send_to_user(user, text: str, *, level="info", close_url: str | None = None):
@@ -69,7 +95,7 @@ def send_to_user(user, text: str, *, level="info", close_url: str | None = None)
     if not cn_settings.is_authenticated_enabled():
         return None
     channel = get_channel_name_for_user(user)
-    return _send(channel, _payload(text, level, close_url))
+    return _send(channel, _message_payload(text, level, close_url))
 
 
 def send_to_object(obj, text: str, *, level="info", close_url: str | None = None):
@@ -82,4 +108,83 @@ def send_to_object(obj, text: str, *, level="info", close_url: str | None = None
     if not cn_settings.is_page_channels_enabled():
         return None
     channel = convert_obj_to_channel_name(obj)
-    return _send(channel, _payload(text, level, close_url))
+    return _send(channel, _message_payload(text, level, close_url))
+
+
+def send_to_channel(
+    channel_name: str, text: str, *, level="info", close_url: str | None = None
+):
+    """Escape hatch: send a message to a raw channel name.
+
+    Use when the channel is a server-issued UID (see ``issue_subscription_token``)
+    that doesn't correspond to a Django model row. The page channels flag
+    gates this — turning it off makes every channel-by-name send a no-op,
+    including UID-based ones.
+    """
+    if not cn_settings.is_page_channels_enabled():
+        return None
+    return _send(channel_name, _message_payload(text, level, close_url))
+
+
+# =========================================================== redirects
+
+
+def redirect_user(user, url: str):
+    """Tell every open page of ``user`` to navigate to ``url``.
+
+    Useful at the end of a long-running task: ``redirect_user(owner,
+    results_url)`` jumps the user from the progress page to the results
+    page without polling. No-op if ``ENABLE_AUTHENTICATED`` is False.
+    """
+    if not cn_settings.is_authenticated_enabled():
+        return None
+    return _send(get_channel_name_for_user(user), _redirect_payload(url))
+
+
+def redirect_object(obj, url: str):
+    """Tell every page subscribed to ``obj`` to navigate to ``url``.
+
+    No-op if ``ENABLE_PAGE_CHANNELS`` is False.
+    """
+    if not cn_settings.is_page_channels_enabled():
+        return None
+    return _send(convert_obj_to_channel_name(obj), _redirect_payload(url))
+
+
+def redirect_channel(channel_name: str, url: str):
+    """Escape hatch — redirect a raw channel (UID, etc.)."""
+    if not cn_settings.is_page_channels_enabled():
+        return None
+    return _send(channel_name, _redirect_payload(url))
+
+
+# ============================================================ progress
+
+
+def progress_user(user, percent):
+    """Update the progress bar on every open page of ``user``.
+
+    ``percent`` may be an int/float (``42``), a string with a percent
+    sign (``"42%"``), or any value — it'll be stringified and a ``%``
+    appended if missing. No-op if ``ENABLE_AUTHENTICATED`` is False.
+    """
+    if not cn_settings.is_authenticated_enabled():
+        return None
+    return _send(get_channel_name_for_user(user), _progress_payload(percent))
+
+
+def progress_object(obj, percent):
+    """Update the progress bar on every page subscribed to ``obj``.
+
+    No-op if ``ENABLE_PAGE_CHANNELS`` is False.
+    """
+    if not cn_settings.is_page_channels_enabled():
+        return None
+    return _send(convert_obj_to_channel_name(obj), _progress_payload(percent))
+
+
+def progress_channel(channel_name: str, percent):
+    """Escape hatch — push progress to a raw channel (UID, etc.)."""
+    if not cn_settings.is_page_channels_enabled():
+        return None
+    return _send(channel_name, _progress_payload(percent))
