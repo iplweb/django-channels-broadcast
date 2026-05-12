@@ -24,7 +24,7 @@ repos:
         args: [--py310-plus]
 
   - repo: https://github.com/adamchainz/django-upgrade
-    rev: 1.22.2
+    rev: 1.30.0
     hooks:
       - id: django-upgrade
         args: [--target-version, "5.2"]

@@ -29,5 +29,3 @@ __all__ = [
     "send_to_object",
     "send_to_user",
 ]
-
-default_app_config = "channels_notifications.apps.ChannelsNotificationsConfig"
