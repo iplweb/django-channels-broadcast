@@ -79,6 +79,8 @@ ignore = ["E501"]  # let formatter handle long lines
 DJANGO_SETTINGS_MODULE = "tests.settings"
 python_files = ["test_*.py", "tests.py"]
 addopts = "-ra"
+pythonpath = ["."]
+asyncio_mode = "auto"
 filterwarnings = [
     "ignore::DeprecationWarning:channels.*",
 ]
