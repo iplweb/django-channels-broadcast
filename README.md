@@ -32,15 +32,22 @@ deliberately, not by accident.
 
 ## Features
 
-- **Five audience modes**: `send_to_all`, `send_to_authenticated`,
-  `send_to_anonymous`, `send_to_user(user, …)`, `send_to_object(obj, …)`.
+- **Five audience modes**, three payload families: messages, redirects,
+  progress. Eighteen functions in total
+  (`send_to_*` / `redirect_*` / `progress_*` × `all` / `authenticated` /
+  `anonymous` / `user` / `object` / `channel`).
 - **Per-audience feature flags** — disabling an audience is a real off
   switch: the consumer refuses to join the group, and for anonymous
   visitors the websocket itself is never opened.
 - **Per-page subscriptions** via `ChannelSubscriberSingleObjectMixin` —
   pages auto-subscribe to a `<app_label>.<model>-<pk>` channel through
-  `ContentType`, with the channel names rendered into the template for
-  the frontend to pick up via `?extraChannels=…`.
+  `ContentType`, gated by an authorizer hook.
+- **Default-deny on `?extraChannels=`** — the consumer will not subscribe
+  any channel a hostile page asks for unless a configured authorizer
+  callback explicitly returns True. No "trust the browser" defaults.
+- **Signed subscription tokens** — bind a server-issued UID/UUID channel
+  to a specific user for N minutes using Django's signing framework.
+  Stateless, no Redis needed.
 - **Replay on reconnect**: unacknowledged `Notification` rows are
   re-sent the next time a relevant client connects.
 - **`send_notification` management command** with `--audience=…` for
@@ -102,26 +109,35 @@ Run migrations:
 ./manage.py migrate channels_notifications
 ```
 
-## Settings — audience gates
+## Settings
+
+### Audience gates
 
 | Setting | Default | What turning it off does |
 |---|---|---|
 | `CHANNELS_NOTIFICATIONS_ENABLE_ALL` | `True` | `send_to_all()` becomes a no-op and the consumer doesn't join the broadcast group. |
-| `CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED` | `True` | `send_to_authenticated()` and `send_to_user()` are no-ops; consumer skips the authenticated-only group and the per-user channel. |
+| `CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED` | `True` | `send_to_authenticated()`, `send_to_user()`, `redirect_user()`, `progress_user()` are no-ops; consumer skips the authenticated-only group and the per-user channel. |
 | `CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS` | `False` | **The consumer closes anonymous connections before `.accept()` — no websocket is opened for them.** `send_to_anonymous()` is a no-op. |
-| `CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS` | `True` | `send_to_object()` is a no-op; consumer ignores `?extraChannels=` subscriptions. |
+| `CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS` | `True` | `send_to_object()` / `redirect_object()` / `progress_object()` / `*_channel()` are no-ops; consumer ignores `?extraChannels=` and `?subscription_token=` subscriptions. |
 
 The most security-relevant flag is `ENABLE_ANONYMOUS`. Off by default so anonymous visitors don't open a connection at all — flip it on deliberately.
 
+### Subscription authorization
+
+| Setting | Default | Effect |
+|---|---|---|
+| `CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER` | `None` (deny all) | Dotted path to a callable `(user, channel_name) -> bool` that decides whether a `?extraChannels=` entry is allowed. See "Security model" below. |
+
 ## Sending notifications
+
+Three payload families, six target variants each.
+
+### Messages
 
 ```python
 from channels_notifications import (
-    send_to_all,
-    send_to_authenticated,
-    send_to_anonymous,
-    send_to_user,
-    send_to_object,
+    send_to_all, send_to_authenticated, send_to_anonymous,
+    send_to_user, send_to_object, send_to_channel,
 )
 
 send_to_all("System maintenance starts in 10 minutes.", level="warning")
@@ -129,11 +145,145 @@ send_to_authenticated("New report available.")
 send_to_anonymous("Welcome — sign in to save your work.")
 send_to_user(user, "Your import finished.")
 send_to_object(article, "Someone just commented on this page.")
+send_to_channel("op-uid-42", "Step 3 of 5 complete.")   # raw channel name
 ```
 
 `level` accepts a `django.contrib.messages` constant (`INFO`, `SUCCESS`,
 `WARNING`, `ERROR`) or a string CSS class (`"info"`, `"success"`,
 `"warning"`, `"error"`).
+
+### Redirects
+
+Tell the receiving page to navigate. Useful at the end of a long-running
+task — bounce the user from a progress page to the results page without
+polling.
+
+```python
+from channels_notifications import redirect_user, redirect_object, redirect_channel
+
+redirect_user(user, "/reports/42/")
+redirect_object(report, "/reports/42/results/")
+redirect_channel("op-uid-42", "/done/")
+```
+
+### Progress
+
+Push a percent to whatever page is showing a progress bar. The bundled
+JS client looks for a `#notifications-progress` element by default; or
+write your own listener for `{"progress": true, "percent": "42%"}`.
+
+```python
+from channels_notifications import progress_user, progress_object, progress_channel
+
+progress_user(user, 42)          # → "42%"
+progress_object(report, 75)
+progress_channel("op-uid-42", 100)
+```
+
+`percent` accepts int, float, or string. A `%` is appended if missing.
+
+## Security model
+
+The websocket has the same authentication the rest of your Django app
+does (session cookie, via `AuthMiddlewareStack`). Beyond that, the
+consumer composes its channel subscriptions from four sources, in order
+of increasing client influence:
+
+1. **Audience groups** derived from `scope["user"]` and the
+   `ENABLE_*` flags. Always trusted — server-controlled.
+2. **Per-user channel** for authenticated users. Always trusted.
+3. **`?extraChannels=` query param** — every channel name passes through
+   a configurable authorizer. **Default: deny.**
+4. **`?subscription_token=` query param** — a server-signed binding of
+   `(user, channels, expiry)`. Bypasses the authorizer; the signature
+   already proves authorization.
+
+### Threat model
+
+- A page rendered by your views may ask for `?extraChannels=…` — but
+  the consumer doesn't trust the request: the authorizer decides.
+- A user who edits the page source to add arbitrary channels gets no
+  subscriptions for them (default authorizer denies all).
+- A user who steals another user's signed token can't replay it — the
+  bound user is checked against `scope["user"]` at connect time.
+- Anonymous users get no websocket at all if `ENABLE_ANONYMOUS=False`
+  (default).
+
+### Configuring the authorizer
+
+For `?extraChannels=` to ever subscribe, point Django at a callable:
+
+```python
+# settings.py
+CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER = "myapp.notif.authorize"
+```
+
+```python
+# myapp/notif.py
+from channels_notifications import get_obj_from_channel_name
+
+def authorize(user, channel_name):
+    """Return True if user is allowed to subscribe to channel_name."""
+    try:
+        obj = get_obj_from_channel_name(channel_name)
+    except Exception:
+        return False
+    return user.has_perm("can_view", obj)
+```
+
+The function runs once per channel at connect time. Channels it denies
+are silently dropped (no information about which channels exist leaks
+back to the client).
+
+### Server-issued UID channels (signed tokens)
+
+When the channel isn't backed by a Django model — for example, a
+per-page UUID for a long-running background task — issue a token:
+
+```python
+import uuid
+from channels_notifications import issue_subscription_token
+
+def my_view(request):
+    stream_uid = str(uuid.uuid4())
+    token = issue_subscription_token(
+        user=request.user,            # bound to this user (or None for anon)
+        channels=[stream_uid],
+        ttl=300,                      # 5 minutes
+    )
+    return render(request, "stream.html", {
+        "stream_uid": stream_uid,
+        "subscription_token": token,
+    })
+```
+
+```html
+{{ subscription_token|json_script:"sub-token" }}
+<script>
+  var token = JSON.parse(document.getElementById("sub-token").textContent);
+  var ws = new WebSocket(
+    "ws://example.com/asgi/notifications/"
+    + "?subscription_token=" + encodeURIComponent(token));
+</script>
+```
+
+The consumer verifies signature, user binding, and TTL, then subscribes
+to `stream_uid`. Tokens are **stateless** — uses Django's
+`TimestampSigner`, signed with `SECRET_KEY`, no Redis or DB required.
+If you eventually need revocation (e.g. on logout), write a thin
+revocation list and check it in a custom consumer — most apps don't
+need it.
+
+### Pushing messages to UID channels
+
+From a Celery worker, view, or anywhere on the server side:
+
+```python
+from channels_notifications import progress_channel, send_to_channel
+
+progress_channel(stream_uid, 42)
+send_to_channel(stream_uid, "Done!", level="success")
+```
 
 ## Object-channel subscriptions (per-page)
 

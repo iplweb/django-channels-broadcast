@@ -7,5 +7,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", views.home, name="home"),
     path("send/", views.send, name="send"),
+    path("demo/fire-progress/", views.fire_progress, name="fire-progress"),
     path("things/", include("demo_app.urls")),
 ]

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signed-token UID stream — demo</title>
+<style>
+  body { font-family: sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
+  code { background: #eee; padding: 0.15em 0.4em; border-radius: 3px; }
+  #progress-bar { background: #ddd; height: 1.4em; border-radius: 3px; margin: 1em 0; overflow: hidden; }
+  #progress-bar > div { background: #4a8; height: 100%; width: 0%; transition: width 0.3s; }
+  #messages { padding: 0.5em; border: 1px dashed #aaa; min-height: 4em; margin-top: 1em; }
+  .msg { padding: 0.5em; margin: 0.3em 0; border-radius: 4px; }
+  .msg.info { background: #def; }
+  .msg.success { background: #dfd; }
+  button { font-size: 1em; padding: 0.4em 1em; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Signed-token UID stream</h1>
+<p><a href="{% url 'home' %}">← back</a></p>
+
+<p>This page got a fresh UID at render time: <code>{{ stream_uid }}</code>.</p>
+
+<p>The view also signed a subscription token binding <strong>{{ request.user.username }}</strong>
+to that single UID for 10 minutes. The token (truncated):
+<code>{{ subscription_token|slice:":40" }}…</code></p>
+
+<p>The browser sends the token as <code>?subscription_token=…</code> on
+the websocket. The consumer verifies the signature, checks
+<code>scope["user"]</code> matches the bound user, and subscribes —
+without consulting the authorizer, since the token is already proof.</p>
+
+<p>If you copied the token into another browser session you'd find
+that opening the same websocket subscribes nothing: the bound user
+wouldn't match.</p>
+
+<button id="fire">Fire fake progress to this UID →</button>
+
+<h2>Progress bar (driven by progress_channel):</h2>
+<div id="progress-bar"><div></div></div>
+
+<h2>Incoming messages:</h2>
+<div id="messages"></div>
+
+{{ stream_uid|json_script:"stream-uid" }}
+{{ subscription_token|json_script:"sub-token" }}
+
+<script>
+  var streamUid = JSON.parse(document.getElementById("stream-uid").textContent);
+  var subToken = JSON.parse(document.getElementById("sub-token").textContent);
+
+  var proto = (window.location.protocol === "https:" ? "wss:" : "ws:");
+  var url = proto + "//" + window.location.host + "/asgi/notifications/"
+          + "?subscription_token=" + encodeURIComponent(subToken);
+
+  var ws = new WebSocket(url);
+  ws.onmessage = function (event) {
+    var data = JSON.parse(event.data);
+    if (data.progress) {
+      document.querySelector("#progress-bar > div").style.width = data.percent;
+      return;
+    }
+    var div = document.createElement("div");
+    div.className = "msg " + (data.cssClass || "info");
+    div.textContent = data.text || data.url || JSON.stringify(data);
+    document.getElementById("messages").prepend(div);
+  };
+  ws.onopen = function () { console.log("ws connected via signed token for", streamUid); };
+  ws.onclose = function () { console.log("ws closed"); };
+
+  // The "fire" button asks the server to push fake progress to OUR UID.
+  document.getElementById("fire").onclick = function () {
+    fetch("/demo/fire-progress/?uid=" + encodeURIComponent(streamUid), {
+      method: "POST",
+      headers: {"X-CSRFToken": document.cookie.match(/csrftoken=([^;]+)/)[1] || ""},
+      credentials: "same-origin",
+    });
+  };
+</script>
+</body>
+</html>

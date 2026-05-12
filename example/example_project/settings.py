@@ -67,3 +67,9 @@ CHANNELS_NOTIFICATIONS_ENABLE_ALL = True
 CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED = True
 CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS = True
 CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS = True
+
+# Authorizer for ?extraChannels= subscriptions. Library default is to
+# DENY every extra channel — you must point this setting at a function
+# that decides which channels each user may join. See
+# demo_app/security.py for the function this demo uses (owner-only).
+CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER = "demo_app.security.authorize"

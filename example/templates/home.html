@@ -21,10 +21,14 @@
 <p>Open this page in two tabs (one logged in via /admin, one anonymous)
    to see audience routing in action.</p>
 
-<p>For the per-page channel demo, also open <a href="{% url 'demo_app:thing-list' %}">/things/</a>
-in a third tab and pick a Thing — that page subscribes to a channel
-named after the object's <code>ContentType</code> + pk, and only receives
-messages sent to that exact channel.</p>
+<p>Two extra demos available:</p>
+<ul>
+  <li><a href="{% url 'demo_app:thing-list' %}">/things/</a> —
+      per-object channels gated by the authorizer
+      (only Thing.owner may subscribe).</li>
+  <li><a href="{% url 'demo_app:uid-stream' %}">/things/uid-stream/</a> —
+      signed-token UID subscription (auth required).</li>
+</ul>
 
 <form method="post" action="{% url 'send' %}">
   {% csrf_token %}

@@ -17,7 +17,6 @@ from channels_notifications import (
     redirect_object,
     redirect_user,
 )
-from channels_notifications import settings as cn_settings
 
 
 @pytest.fixture

@@ -61,9 +61,7 @@ def _deny_all(user: Any, channel_name: str) -> bool:
 
 
 def _resolve_authorizer():
-    path = getattr(
-        settings, "CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER", None
-    )
+    path = getattr(settings, "CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER", None)
     if not path:
         return _deny_all
     return import_string(path)

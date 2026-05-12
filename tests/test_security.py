@@ -8,7 +8,6 @@ Covers:
 """
 
 import json
-import time
 from base64 import urlsafe_b64encode
 
 import pytest
@@ -18,13 +17,12 @@ from django.core.signing import TimestampSigner
 from django.test import override_settings
 
 from channels_notifications.security import (
-    DEFAULT_TOKEN_TTL_SECONDS,
     _SIGNING_SALT,
+    DEFAULT_TOKEN_TTL_SECONDS,
     authorize_extra_channel,
     issue_subscription_token,
     verify_subscription_token,
 )
-
 
 # --------------------------------------------------- authorizer hook
 
@@ -42,9 +40,7 @@ def _allow_starts_with_x(user, channel_name):
 
 
 @override_settings(
-    CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER=(
-        "tests.test_security._allow_all"
-    )
+    CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER=("tests.test_security._allow_all")
 )
 def test_custom_authorizer_can_permit():
     assert authorize_extra_channel(AnonymousUser(), "anything") is True
@@ -107,9 +103,7 @@ def test_tampered_payload_returns_empty():
     token = issue_subscription_token(None, ["uid-1"])
     # Replace the payload — signature was for old payload
     bad_payload = (
-        urlsafe_b64encode(
-            json.dumps({"u": None, "c": ["uid-EVIL"], "t": 300}).encode()
-        )
+        urlsafe_b64encode(json.dumps({"u": None, "c": ["uid-EVIL"], "t": 300}).encode())
         .rstrip(b"=")
         .decode()
     )

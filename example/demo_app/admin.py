@@ -5,4 +5,5 @@ from .models import Thing
 
 @admin.register(Thing)
 class ThingAdmin(admin.ModelAdmin):
-    list_display = ("pk", "name")
+    list_display = ("pk", "name", "owner")
+    list_select_related = ("owner",)
