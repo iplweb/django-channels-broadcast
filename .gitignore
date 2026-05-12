@@ -71,3 +71,6 @@ credentials.yml
 service-account*.json
 secrets.yaml
 secrets.yml
+
+# run-site sidecar (auto-generated, removed on clean shutdown)
+.run-site-config

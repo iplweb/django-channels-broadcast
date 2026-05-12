@@ -312,12 +312,96 @@ already do this — read the source for the wiring.
 
 ## Management command
 
-```bash
-./manage.py send_notification --audience=all "Hello everyone"
-./manage.py send_notification --audience=authenticated "Hello logged-in users"
-./manage.py send_notification --audience=anonymous "Hello anons"
-./manage.py send_notification --audience=user --username=alice "Hi Alice"
+`./manage.py send_notification` reaches every function in
+`channels_notifications.api` — messages, redirects, progress — across
+every audience target. Useful for cron jobs, ad-hoc operator pokes,
+and shell pipelines from Celery / systemd / k8s jobs.
+
+Three orthogonal flags:
+
 ```
+--kind={message,redirect,progress}   what to send (default: message)
+--audience={all,authenticated,anonymous,user,object,channel}
+                                     who gets it
+<payload>                            text / URL / percent (positional)
+```
+
+Plus target-specific flags:
+
+```
+--username=<name>            when --audience=user
+--object=app.Model:pk        when --audience=object
+--channel=<name>             when --audience=channel
+--level={info,success,warning,error}   for --kind=message only
+```
+
+### Messages
+
+```bash
+# Audience broadcasts
+./manage.py send_notification --audience=all          "Maintenance in 5 min" --level=warning
+./manage.py send_notification --audience=authenticated "New monthly report"
+./manage.py send_notification --audience=anonymous     "Welcome — please sign in"
+
+# Targeted at one user (all of their open tabs)
+./manage.py send_notification --audience=user --username=alice "Your import finished"
+
+# Targeted at one Django model row's per-page channel
+./manage.py send_notification --audience=object --object=bpp.Publication:42 \
+    "Someone commented on this page"
+
+# Targeted at a raw channel name — e.g. a server-issued UID
+./manage.py send_notification --audience=channel --channel=stream-abc123 \
+    "Hi UID subscriber"
+```
+
+### Redirects
+
+`--kind=redirect`. Payload is the URL to navigate the receiving page to.
+Useful at the end of a long-running task — bounce a user from the
+progress page to the results page without polling.
+
+```bash
+./manage.py send_notification --kind=redirect --audience=user \
+    --username=alice /reports/42/results/
+
+./manage.py send_notification --kind=redirect --audience=object \
+    --object=bpp.Report:42 /reports/42/results/
+
+./manage.py send_notification --kind=redirect --audience=channel \
+    --channel=stream-abc123 /done/
+```
+
+Broadcast redirects (`--audience=all/authenticated/anonymous`) are
+rejected — redirecting everyone is almost never what you want, and if
+it is you can script it with multiple `--audience=user` calls.
+
+### Progress
+
+`--kind=progress`. Payload is the percent — int, float, or a string with
+or without a `%` sign. The bundled JS client updates a
+`#notifications-progress` element's width on receipt.
+
+```bash
+./manage.py send_notification --kind=progress --audience=user \
+    --username=alice 42
+
+./manage.py send_notification --kind=progress --audience=object \
+    --object=bpp.Operation:7 75
+
+./manage.py send_notification --kind=progress --audience=channel \
+    --channel=stream-abc123 100%
+```
+
+### Exit behaviour
+
+- Success: exit 0, no output.
+- An audience the relevant `CHANNELS_NOTIFICATIONS_ENABLE_*` flag has
+  disabled: exit 0 with a `No-op: ...` warning on stdout (so cron jobs
+  don't fail, but you can grep for the warning if you care).
+- Bad inputs (missing `--username` for `--audience=user`, unknown
+  model, invalid object spec, `--kind=redirect --audience=all`, etc.):
+  exit non-zero with a `CommandError` message on stderr.
 
 ## Frontend integration
 
