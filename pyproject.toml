@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-channels-notifications"
+version = "0.1.0"
+description = "Pluggable websocket notifications for Django: broadcast to all, authenticated, anonymous, single user, or per-object page channels — each gated by a setting."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "Michał Pasternak", email = "michal.dtz@gmail.com"},
+]
+keywords = ["django", "channels", "websocket", "notifications", "asgi", "realtime"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "django>=5.2",
+    "channels>=4.0",
+    "asgiref>=3.7",
+    "nest-asyncio>=1.6",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8",
+    "pytest-django>=4.8",
+    "pytest-asyncio>=0.23",
+    "model-bakery>=1.18",
+    "channels[daphne]>=4.0",
+]
+dev = [
+    "pre-commit>=3",
+    "ruff>=0.5",
+    "build",
+    "twine",
+]
+
+[project.urls]
+Homepage = "https://github.com/iplweb/django-channels-notifications"
+Repository = "https://github.com/iplweb/django-channels-notifications"
+Issues = "https://github.com/iplweb/django-channels-notifications/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"channels_notifications" = ["static/**/*", "templates/**/*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]  # let formatter handle long lines
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+"src/channels_notifications/migrations/*" = ["E501"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["test_*.py", "tests.py"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning:channels.*",
+]
