@@ -9,6 +9,15 @@ per-page (object-channel) one.
 cd example
 uv run python manage.py migrate
 uv run python manage.py createsuperuser  # for the per-user demo
+uv run python manage.py runserver
+```
+
+`runserver` is ASGI-aware here because `"daphne"` is listed first in
+`INSTALLED_APPS` (see `example_project/settings.py`). Without that, the
+stock Django `runserver` is HTTP-only and every `/asgi/notifications/`
+connect returns 404. If you'd rather run Daphne directly:
+
+```bash
 uv run daphne -p 8000 example_project.asgi:application
 ```
 

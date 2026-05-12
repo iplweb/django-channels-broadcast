@@ -69,15 +69,23 @@ uv add django-channels-broadcast
 pip install django-channels-broadcast
 ```
 
-Add to `INSTALLED_APPS`:
+Add to `INSTALLED_APPS`. **`daphne` must come first** if you want
+`./manage.py runserver` to handle websockets — without it, stock Django
+serves HTTP only and every `/asgi/notifications/` connect 404s:
 
 ```python
 INSTALLED_APPS = [
-    # ...
+    "daphne",                 # MUST be first — makes runserver ASGI-aware
+    # ... your existing django.contrib.* apps ...
     "channels",
     "channels_notifications",
 ]
 ```
+
+(You don't strictly need `daphne` if you run an ASGI server externally
+in dev, e.g. `daphne example_project.asgi:application` or
+`uvicorn example_project.asgi:application`. But for the conventional
+`manage.py runserver` workflow, list it.)
 
 Wire the websocket route into your `asgi.py`:
 

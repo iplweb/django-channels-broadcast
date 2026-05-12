@@ -43,7 +43,12 @@ test = [
     "pytest-django>=4.8",
     "pytest-asyncio>=0.23",
     "model-bakery>=1.18",
-    "channels[daphne]>=4.0",
+    "daphne>=4.1",
+]
+example = [
+    # Anything needed to actually run `example/manage.py runserver`.
+    # `daphne` listed first in INSTALLED_APPS makes runserver ASGI-aware.
+    "daphne>=4.1",
 ]
 dev = [
     "pre-commit>=3",

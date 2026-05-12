@@ -6,7 +6,12 @@ SECRET_KEY = "example-not-for-production"
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
+# `daphne` MUST come first so it overrides Django's stock `runserver`
+# with an ASGI-aware version that routes both HTTP and WebSocket. Without
+# this, `./manage.py runserver` serves HTTP only and every websocket
+# connect to /asgi/notifications/ returns 404.
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
