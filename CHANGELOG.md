@@ -52,6 +52,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tone.js audio code extracted out of `notifications.js` into an
   optional sibling `notifications-chime.js`. Core `notifications.js`
   no longer depends on Tone.js being loaded.
+- `send_notification` management command rewritten:
+  - Now reaches every function in `channels_notifications.api` —
+    messages, redirects, progress, across all six audience targets
+    (`all`, `authenticated`, `anonymous`, `user`, `object`, `channel`).
+  - New `--kind=`, `--object=app.Model:pk`, `--channel=` flags.
+  - **Interactive wizard mode**: run with no arguments (or just
+    some flags) from a TTY and the command prompts for kind →
+    audience → target → level → payload. Non-TTY (cron, systemd)
+    keeps the fail-fast "X is required" behaviour.
+  - `--kind={redirect,progress}` is rejected for broadcast audiences
+    (`all`/`authenticated`/`anonymous`) — those require a specific
+    recipient.
+  - When the relevant `ENABLE_*` flag is False, exits 0 with a
+    `No-op: ...` stdout warning rather than silently swallowing.
 
 ### Removed
 

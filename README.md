@@ -403,6 +403,50 @@ or without a `%` sign. The bundled JS client updates a
   model, invalid object spec, `--kind=redirect --audience=all`, etc.):
   exit non-zero with a `CommandError` message on stderr.
 
+### Interactive mode
+
+Run the command with no arguments (or with only some flags) from a
+terminal — it'll prompt for whatever's missing:
+
+```
+$ ./manage.py send_notification
+Kind:
+  1) message (default)
+  2) redirect
+  3) progress
+Choose [1-3, enter=message]: <Enter>
+Audience:
+  1) all
+  2) authenticated
+  3) anonymous
+  4) user
+  5) object
+  6) channel
+Choose [1-6]: 4
+Username: alice
+Level:
+  1) info (default)
+  2) success
+  3) warning
+  4) error
+Choose [1-4, enter=info]: 3
+Message text: Server reboot in 5 minutes
+```
+
+Each prompt accepts either the number or the name itself
+(`message`/`success`/`alice` etc.). Enter alone picks the default
+where one's marked. `q` or Ctrl-D cancels.
+
+When stdin **isn't** a TTY (cron, systemd, CI, piped input), the
+command does not hang — it fails fast with a clear "X is required"
+error so you can fix the script:
+
+```
+$ echo "" | ./manage.py send_notification
+CommandError: --audience is required (pass it as a flag, or run
+interactively from a TTY to get a prompt).
+```
+
 ## Frontend integration
 
 Three JS files ship under `static/channels_notifications/js/`:

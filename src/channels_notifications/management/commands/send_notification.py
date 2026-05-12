@@ -7,6 +7,9 @@ Three orthogonal axes:
   --audience={all,authenticated,anonymous,user,object,channel}   who gets it
   the text / URL / percent payload itself (positional)
 
+If a required field is missing AND stdin is a TTY, the command prompts
+interactively. Run with no arguments at all to see the full wizard.
+
 Examples
 --------
 
@@ -29,9 +32,22 @@ Progress (--kind=progress, payload = percent: int, float, or "42%")::
     ./manage.py send_notification --kind=progress --audience=user --username=alice 42
     ./manage.py send_notification --kind=progress --audience=channel --channel="stream-abc" 75%
 
-The --object format is "<app_label>.<ModelName>:<pk>". Resolved via
-``django.apps.apps.get_model``.
+Interactive::
+
+    ./manage.py send_notification
+    Audience:
+      1) all
+      2) authenticated
+      ...
+    Choose [1-6]: 4
+    Username: alice
+    Level:
+      1) info (default)
+      ...
+    Message text: Your import finished
 """
+
+import sys
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
@@ -45,6 +61,15 @@ LEVEL_MAP = {
     "success": message_constants.SUCCESS,
     "warning": message_constants.WARNING,
     "error": message_constants.ERROR,
+}
+
+AUDIENCE_CHOICES = ["all", "authenticated", "anonymous", "user", "object", "channel"]
+KIND_CHOICES = ["message", "redirect", "progress"]
+
+PAYLOAD_LABELS = {
+    "message": "Message text",
+    "redirect": "Redirect URL",
+    "progress": 'Progress percent (e.g. "42" or "42%")',
 }
 
 
@@ -80,35 +105,106 @@ def _resolve_user(username):
         raise CommandError(f"user {username!r} does not exist") from exc
 
 
+# ----------------------------------------------------------- interactive helpers
+
+
+def _is_tty() -> bool:
+    """Return True if we can prompt interactively."""
+    try:
+        return sys.stdin.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def _require_tty(field_name: str):
+    """Raise a helpful CommandError when interactive prompting isn't possible."""
+    raise CommandError(
+        f"{field_name} is required (pass it as a flag, or run interactively "
+        "from a TTY to get a prompt)."
+    )
+
+
+def _input(prompt: str) -> str:
+    """Indirection over input() so tests can monkeypatch one place."""
+    return input(prompt)
+
+
+def _prompt_choice(label: str, choices: list[str], default: str | None = None) -> str:
+    """Numbered-menu prompt. Returns one of ``choices``.
+
+    Empty input picks ``default`` if provided; otherwise re-asks. ``q`` or
+    EOF cancels the whole command.
+    """
+    while True:
+        print(f"{label}:", file=sys.stderr)
+        for i, c in enumerate(choices, 1):
+            tail = " (default)" if c == default else ""
+            print(f"  {i}) {c}{tail}", file=sys.stderr)
+        try:
+            raw = _input(
+                f"Choose [1-{len(choices)}{', enter=' + default if default else ''}]: "
+            ).strip()
+        except EOFError as exc:
+            raise CommandError("cancelled (EOF on stdin)") from exc
+
+        if not raw and default is not None:
+            return default
+        if raw.lower() in {"q", "quit", "exit"}:
+            raise CommandError("cancelled by user")
+        # Accept either the number or the name itself.
+        if raw in choices:
+            return raw
+        try:
+            idx = int(raw)
+        except ValueError:
+            print(f"  ! {raw!r} is not a valid choice — try again.", file=sys.stderr)
+            continue
+        if 1 <= idx <= len(choices):
+            return choices[idx - 1]
+        print(f"  ! out of range — try 1-{len(choices)}.", file=sys.stderr)
+
+
+def _prompt_string(label: str, *, allow_empty: bool = False) -> str:
+    try:
+        value = _input(f"{label}: ")
+    except EOFError as exc:
+        raise CommandError("cancelled (EOF on stdin)") from exc
+    if not allow_empty and not value.strip():
+        raise CommandError(f"{label} cannot be empty")
+    return value
+
+
+# --------------------------------------------------------------- command
+
+
 class Command(BaseCommand):
     help = "Send a realtime message, redirect, or progress update via django-channels."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--kind",
-            choices=["message", "redirect", "progress"],
-            default="message",
+            choices=KIND_CHOICES,
+            default=None,
             help=(
                 "Payload family. message=text (default), redirect=URL "
                 "to navigate the receiving page to, progress=percent "
-                "to update a progress bar."
+                "to update a progress bar. If omitted, prompted "
+                "interactively when stdin is a TTY (defaults to message)."
             ),
         )
         parser.add_argument(
             "--audience",
-            choices=["all", "authenticated", "anonymous", "user", "object", "channel"],
-            required=True,
+            choices=AUDIENCE_CHOICES,
+            default=None,
             help=(
                 "Who receives the message. all/authenticated/anonymous "
                 "broadcast to groups. user targets one user (--username). "
                 "object targets the channel for a Django model row "
-                "(--object). channel targets a raw channel name (--channel)."
+                "(--object). channel targets a raw channel name (--channel). "
+                "If omitted, prompted interactively when stdin is a TTY."
             ),
         )
-        parser.add_argument(
-            "--username",
-            help="Required when --audience=user.",
-        )
+        parser.add_argument("--username", help="Required when --audience=user.")
         parser.add_argument(
             "--object",
             dest="object_spec",
@@ -122,31 +218,29 @@ class Command(BaseCommand):
         parser.add_argument(
             "--level",
             choices=list(LEVEL_MAP),
-            default="info",
-            help="Message level (--kind=message only).",
+            default=None,
+            help="Message level (--kind=message only). Default: info.",
         )
         parser.add_argument(
             "payload",
+            nargs="?",
+            default=None,
             help=(
                 "Message text (--kind=message), URL (--kind=redirect), "
-                "or percent (--kind=progress)."
+                "or percent (--kind=progress). If omitted, prompted "
+                "interactively when stdin is a TTY."
             ),
         )
 
     # ---------------------------------------------------------- handlers
 
     def handle(self, *args, **options):
-        kind = options["kind"]
-        audience = options["audience"]
-        payload = options["payload"]
-        level = LEVEL_MAP[options["level"]]
+        kind = self._resolve_kind(options)
+        audience = self._resolve_audience(options)
 
-        if audience == "object" and not options.get("object_spec"):
-            raise CommandError("--object is required when --audience=object")
-        if audience == "channel" and not options.get("channel"):
-            raise CommandError("--channel is required when --audience=channel")
-
-        # Some combinations don't make sense — bail loudly.
+        # Validate combinations before prompting for any more details —
+        # the user shouldn't have to type a URL only to then learn that
+        # redirect-to-all isn't supported.
         if kind in {"redirect", "progress"} and audience in {
             "all",
             "authenticated",
@@ -158,17 +252,13 @@ class Command(BaseCommand):
                 "(user/object/channel)."
             )
 
-        # Build a dispatch table keyed by (kind, audience) → (callable, target).
-        dispatchers = self._build_dispatchers(audience, options)
-        try:
-            fn, target = dispatchers[kind]
-        except KeyError as exc:
-            # Should be unreachable thanks to argparse choices.
-            raise CommandError(f"unknown kind {kind!r}") from exc
+        target = self._resolve_target(audience, options)
+        level = self._resolve_level(options, kind)
+        payload = self._resolve_payload(options, kind)
 
+        fn = self._dispatch_fn(audience, kind)
         result = self._invoke(fn, target, payload, kind, level)
         if result is None:
-            # The corresponding ENABLE_* flag was False — be honest about it.
             self.stdout.write(
                 self.style.WARNING(
                     f"No-op: the relevant CHANNELS_NOTIFICATIONS_ENABLE_* "
@@ -177,16 +267,69 @@ class Command(BaseCommand):
                 )
             )
 
-    def _build_dispatchers(self, audience, options):
-        """Return {kind: (api_fn, target_or_None)} for the chosen audience."""
-        target = None
-        if audience == "user":
-            target = _resolve_user(options.get("username"))
-        elif audience == "object":
-            target = _resolve_object(options["object_spec"])
-        elif audience == "channel":
-            target = options["channel"]
+    # --------------------------------------------------- argument resolution
 
+    def _resolve_kind(self, options):
+        kind = options.get("kind")
+        if kind:
+            return kind
+        if not _is_tty():
+            return "message"  # default; never prompts cron
+        return _prompt_choice("Kind", KIND_CHOICES, default="message")
+
+    def _resolve_audience(self, options):
+        audience = options.get("audience")
+        if audience:
+            return audience
+        if not _is_tty():
+            _require_tty("--audience")
+        return _prompt_choice("Audience", AUDIENCE_CHOICES)
+
+    def _resolve_target(self, audience, options):
+        if audience == "user":
+            username = options.get("username")
+            if not username and _is_tty():
+                username = _prompt_string("Username")
+            return _resolve_user(username)
+        if audience == "object":
+            spec = options.get("object_spec")
+            if not spec and _is_tty():
+                spec = _prompt_string("Object (app.Model:pk)")
+            if not spec:
+                raise CommandError("--object is required when --audience=object")
+            return _resolve_object(spec)
+        if audience == "channel":
+            channel = options.get("channel")
+            if not channel and _is_tty():
+                channel = _prompt_string("Channel name")
+            if not channel:
+                raise CommandError("--channel is required when --audience=channel")
+            return channel
+        return None  # all / authenticated / anonymous have no target
+
+    def _resolve_level(self, options, kind):
+        if kind != "message":
+            # level only meaningful for messages; ignore if supplied
+            return LEVEL_MAP["info"]
+        level = options.get("level")
+        if not level:
+            if _is_tty():
+                level = _prompt_choice("Level", list(LEVEL_MAP), default="info")
+            else:
+                level = "info"
+        return LEVEL_MAP[level]
+
+    def _resolve_payload(self, options, kind):
+        payload = options.get("payload")
+        if payload is not None:
+            return payload
+        if not _is_tty():
+            _require_tty("payload")
+        return _prompt_string(PAYLOAD_LABELS[kind])
+
+    # ---------------------------------------------------------- dispatch
+
+    def _dispatch_fn(self, audience, kind):
         # audience → (message_fn, redirect_fn, progress_fn)
         table = {
             "all": (api.send_to_all, None, None),
@@ -201,17 +344,13 @@ class Command(BaseCommand):
             ),
         }
         msg_fn, redir_fn, prog_fn = table[audience]
-        return {
-            "message": (msg_fn, target),
-            "redirect": (redir_fn, target),
-            "progress": (prog_fn, target),
-        }
+        fn = {"message": msg_fn, "redirect": redir_fn, "progress": prog_fn}[kind]
+        if fn is None:
+            # Should be unreachable: combination rejected earlier in handle().
+            raise CommandError("invalid combination of --kind and --audience")
+        return fn
 
     def _invoke(self, fn, target, payload, kind, level):
-        if fn is None:
-            # Caught above as well, but defend in depth.
-            raise CommandError("invalid combination of --kind and --audience")
-
         if kind == "message":
             if target is None:
                 return fn(payload, level=level)
