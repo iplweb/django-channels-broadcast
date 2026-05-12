@@ -44,23 +44,74 @@ const dom = new JSDOM(
 const $ = require("jquery")(dom.window);
 const Mustache = require("mustache");
 
+/**
+ * FakeWebSocket — extends jsdom's EventTarget so the production code's
+ * `addEventListener("open"|"close"|"error"|"message", ...)` works as
+ * it would in a browser. Tests can drive lifecycle via the helpers
+ * `__emitOpen() / __emitClose(code) / __emitMessage(data) / __emitError()`.
+ * The latest constructed instance is parked on `FakeWebSocket.last` so
+ * tests don't have to thread it through.
+ */
+const FakeWebSocket = class FakeWebSocket extends dom.window.EventTarget {
+    constructor(url) {
+        super();
+        this.url = url;
+        this.readyState = 0; // CONNECTING
+        this.sent = [];
+        FakeWebSocket.last = this;
+        FakeWebSocket.constructed.push(this);
+    }
+    send(payload) { this.sent.push(payload); }
+    close() {
+        if (this.readyState === 3) return;
+        this.readyState = 3;
+        this.dispatchEvent(new dom.window.Event("close"));
+    }
+    __emitOpen() {
+        this.readyState = 1;
+        this.dispatchEvent(new dom.window.Event("open"));
+    }
+    __emitClose(code) {
+        this.readyState = 3;
+        var e = new dom.window.Event("close");
+        e.code = code != null ? code : 1006;
+        e.reason = "";
+        this.dispatchEvent(e);
+    }
+    __emitMessage(data) {
+        // jsdom doesn't ship MessageEvent's constructor under all node versions;
+        // a plain Event with a .data prop is what the production code reads.
+        var e = new dom.window.Event("message");
+        e.data = data;
+        this.dispatchEvent(e);
+    }
+    __emitError() {
+        this.dispatchEvent(new dom.window.Event("error"));
+    }
+};
+FakeWebSocket.last = null;
+FakeWebSocket.constructed = [];
+FakeWebSocket.OPEN = 1;
+FakeWebSocket.CONNECTING = 0;
+FakeWebSocket.CLOSED = 3;
+FakeWebSocket.resetTracking = function () {
+    FakeWebSocket.last = null;
+    FakeWebSocket.constructed = [];
+};
+
 global.window = dom.window;
 global.document = dom.window.document;
 global.$ = global.jQuery = $;
 global.Mustache = Mustache;
-global.WebSocket = class FakeWebSocket {
-    constructor(url) { this.url = url; this.readyState = 1; }
-    send() {}
-    close() { this.readyState = 3; }
-};
-global.WebSocket.OPEN = 1;
+global.WebSocket = FakeWebSocket;
+global.FakeWebSocket = FakeWebSocket; // tests inspect lifecycle via this handle
 
 // Make our shims visible inside the jsdom realm so production scripts
 // using `window.X` find them where they expect.
 dom.window.$ = $;
 dom.window.jQuery = $;
 dom.window.Mustache = Mustache;
-dom.window.WebSocket = global.WebSocket;
+dom.window.WebSocket = FakeWebSocket;
 dom.window.console = console;
 
 // Load each script into the jsdom realm via vm.runInContext (the same
