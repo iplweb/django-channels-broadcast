@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.test import override_settings
 from model_bakery import baker
 
-from channels_notifications import (
+from channels_broadcast import (
     progress_channel,
     progress_object,
     progress_user,
@@ -26,7 +26,7 @@ def captured(monkeypatch):
     def fake_send(channel_name, data):
         calls.append((channel_name, data))
 
-    monkeypatch.setattr("channels_notifications.api._send", fake_send)
+    monkeypatch.setattr("channels_broadcast.api._send", fake_send)
     return calls
 
 
@@ -56,7 +56,7 @@ def test_redirect_channel_uses_raw_channel(captured):
     assert captured == [("my-uid-123", {"url": "/x/"})]
 
 
-@override_settings(CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED=False)
+@override_settings(CHANNELS_BROADCAST_ENABLE_AUTHENTICATED=False)
 @pytest.mark.django_db
 def test_redirect_user_respects_auth_flag(captured):
     user = get_user_model().objects.create_user(username="alice", password="x")
@@ -64,7 +64,7 @@ def test_redirect_user_respects_auth_flag(captured):
     assert captured == []
 
 
-@override_settings(CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS=False)
+@override_settings(CHANNELS_BROADCAST_ENABLE_PAGE_CHANNELS=False)
 @pytest.mark.django_db
 def test_redirect_object_respects_page_channels_flag(captured):
     from tests.testapp.models import Thing
@@ -121,7 +121,7 @@ def test_progress_channel_float_percent(captured):
 # -------- group gates
 
 
-@override_settings(CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS=False)
+@override_settings(CHANNELS_BROADCAST_ENABLE_PAGE_CHANNELS=False)
 def test_progress_channel_respects_page_channels_flag(captured):
     assert progress_channel("op-uid", 25) is None
     assert captured == []

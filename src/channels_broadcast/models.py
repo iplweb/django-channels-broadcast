@@ -1,7 +1,7 @@
 from django.db import models
 
-from channels_notifications import core
-from channels_notifications.core import convert_obj_to_channel_name
+from channels_broadcast import core
+from channels_broadcast.core import convert_obj_to_channel_name
 
 
 class NotificationManager(models.Manager):

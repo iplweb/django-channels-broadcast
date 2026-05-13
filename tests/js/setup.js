@@ -118,8 +118,8 @@ dom.window.console = console;
 // API jsdom is built on). The script's bare `window`/`document`/`$`
 // lookups resolve to dom.window via the context's global scope.
 const jsRoot = path.join(
-    __dirname, "..", "..", "src", "channels_notifications", "static",
-    "channels_notifications", "js"
+    __dirname, "..", "..", "src", "channels_broadcast", "static",
+    "channels_broadcast", "js"
 );
 
 function loadScript(name) {

@@ -1,7 +1,7 @@
 import pytest
 from model_bakery import baker
 
-from channels_notifications.core import (
+from channels_broadcast.core import (
     convert_obj_to_channel_name,
     get_obj_from_channel_name,
 )

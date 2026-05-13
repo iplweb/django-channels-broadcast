@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-13
+
+### Changed (breaking)
+
+- Renamed Python package `channels_notifications` → `channels_broadcast`.
+  All imports, the Django app label, and the settings prefix
+  `CHANNELS_NOTIFICATIONS_*` → `CHANNELS_BROADCAST_*` change in lockstep.
+  The `AppConfig` class is now `ChannelsBroadcastConfig`. Update
+  `INSTALLED_APPS`, every `from channels_notifications import …`, and
+  any `CHANNELS_NOTIFICATIONS_*` settings keys in your project.
+
+## [0.1.0]
+
 ### Added
 
 - Initial extraction from BPP (Bibliografia Publikacji Pracowników) monolith
@@ -19,14 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Progress API: `progress_user`, `progress_object`, `progress_channel` —
   push a percent to a progress bar.
 - Subscription authorization: settings-pluggable callable
-  `CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER` runs once per
+  `CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER` runs once per
   channel in `?extraChannels=`. Default: deny everything (secure by default).
 - Signed subscription tokens: `issue_subscription_token(user, channels, ttl)`
   binds a user to a channel list for N seconds, no Redis required —
   uses Django's `TimestampSigner`. Browser sends as
   `?subscription_token=`; consumer verifies signature + user match + TTL.
 - Settings contract for individual audience gates:
-  `CHANNELS_NOTIFICATIONS_ENABLE_{ALL,AUTHENTICATED,ANONYMOUS,PAGE_CHANNELS}`.
+  `CHANNELS_BROADCAST_ENABLE_{ALL,AUTHENTICATED,ANONYMOUS,PAGE_CHANNELS}`.
 - Anonymous visitors get no websocket connection at all when
   `ENABLE_ANONYMOUS=False` (default).
 - `send_notification` management command with `--audience` flag.
@@ -53,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optional sibling `notifications-chime.js`. Core `notifications.js`
   no longer depends on Tone.js being loaded.
 - `send_notification` management command rewritten:
-  - Now reaches every function in `channels_notifications.api` —
+  - Now reaches every function in `channels_broadcast.api` —
     messages, redirects, progress, across all six audience targets
     (`all`, `authenticated`, `anonymous`, `user`, `object`, `channel`).
   - New `--kind=`, `--object=app.Model:pk`, `--channel=` flags.

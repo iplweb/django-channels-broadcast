@@ -15,7 +15,7 @@ from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 
-from channels_notifications import settings as cn_settings
+from channels_broadcast import settings as cn_settings
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -56,7 +56,7 @@ def anonymous_user():
 # -------------------------------------------------- anonymous gating
 
 
-@override_settings(CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS=False)
+@override_settings(CHANNELS_BROADCAST_ENABLE_ANONYMOUS=False)
 async def test_anonymous_connection_rejected_when_flag_off(anonymous_user):
     comm = await _open_ws(anonymous_user)
     connected, _ = await comm.connect()
@@ -64,8 +64,8 @@ async def test_anonymous_connection_rejected_when_flag_off(anonymous_user):
 
 
 @override_settings(
-    CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS=True,
-    CHANNELS_NOTIFICATIONS_ENABLE_ALL=False,
+    CHANNELS_BROADCAST_ENABLE_ANONYMOUS=True,
+    CHANNELS_BROADCAST_ENABLE_ALL=False,
 )
 async def test_anonymous_receives_anonymous_group_when_enabled(anonymous_user):
     comm = await _open_ws(anonymous_user)
@@ -81,7 +81,7 @@ async def test_anonymous_receives_anonymous_group_when_enabled(anonymous_user):
 # ---------------------------------------------- authenticated routing
 
 
-@override_settings(CHANNELS_NOTIFICATIONS_ENABLE_ALL=False)
+@override_settings(CHANNELS_BROADCAST_ENABLE_ALL=False)
 async def test_authenticated_user_receives_auth_group(authed_user):
     comm = await _open_ws(authed_user)
     connected, _ = await comm.connect()
@@ -93,8 +93,8 @@ async def test_authenticated_user_receives_auth_group(authed_user):
 
 
 @override_settings(
-    CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED=False,
-    CHANNELS_NOTIFICATIONS_ENABLE_ALL=False,
+    CHANNELS_BROADCAST_ENABLE_AUTHENTICATED=False,
+    CHANNELS_BROADCAST_ENABLE_ALL=False,
 )
 async def test_authenticated_user_skips_auth_group_when_flag_off(authed_user):
     comm = await _open_ws(authed_user)
@@ -119,7 +119,7 @@ async def test_authenticated_user_receives_all_group(authed_user):
     await comm.disconnect()
 
 
-@override_settings(CHANNELS_NOTIFICATIONS_ENABLE_ALL=False)
+@override_settings(CHANNELS_BROADCAST_ENABLE_ALL=False)
 async def test_all_group_not_joined_when_flag_off(authed_user):
     comm = await _open_ws(authed_user)
     connected, _ = await comm.connect()
@@ -135,7 +135,7 @@ async def test_all_group_not_joined_when_flag_off(authed_user):
 
 async def test_user_receives_per_user_channel(authed_user):
     """A direct send_to_user message reaches this exact user only."""
-    from channels_notifications.core import get_channel_name_for_user
+    from channels_broadcast.core import get_channel_name_for_user
 
     comm = await _open_ws(authed_user)
     connected, _ = await comm.connect()

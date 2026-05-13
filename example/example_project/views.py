@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from channels_notifications import (
+from channels_broadcast import (
     progress_channel,
     send_to_all,
     send_to_anonymous,

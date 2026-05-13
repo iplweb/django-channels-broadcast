@@ -1,6 +1,6 @@
-"""Low-level transport layer for channels_notifications.
+"""Low-level transport layer for channels_broadcast.
 
-Higher-level callers should use :mod:`channels_notifications.api` instead —
+Higher-level callers should use :mod:`channels_broadcast.api` instead —
 this module is the bridge to ``channels.layers`` and handles event-loop
 quirks when called from sync contexts (Celery, management commands, etc.).
 """

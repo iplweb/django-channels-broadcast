@@ -16,7 +16,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.signing import TimestampSigner
 from django.test import override_settings
 
-from channels_notifications.security import (
+from channels_broadcast.security import (
     _SIGNING_SALT,
     DEFAULT_TOKEN_TTL_SECONDS,
     authorize_extra_channel,
@@ -40,14 +40,14 @@ def _allow_starts_with_x(user, channel_name):
 
 
 @override_settings(
-    CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER=("tests.test_security._allow_all")
+    CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER=("tests.test_security._allow_all")
 )
 def test_custom_authorizer_can_permit():
     assert authorize_extra_channel(AnonymousUser(), "anything") is True
 
 
 @override_settings(
-    CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER=(
+    CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER=(
         "tests.test_security._allow_starts_with_x"
     )
 )

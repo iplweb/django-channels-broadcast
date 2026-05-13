@@ -1,20 +1,20 @@
 def test_app_imports():
-    import channels_notifications
+    import channels_broadcast
 
-    assert channels_notifications
+    assert channels_broadcast
 
 
 def test_appconfig_loads():
     from django.apps import apps
 
-    config = apps.get_app_config("channels_notifications")
-    assert config.name == "channels_notifications"
-    assert config.label == "channels_notifications"
+    config = apps.get_app_config("channels_broadcast")
+    assert config.name == "channels_broadcast"
+    assert config.label == "channels_broadcast"
 
 
 def test_public_api_surface():
     """Make sure the documented top-level names are importable."""
-    from channels_notifications import (
+    from channels_broadcast import (
         send_to_all,
         send_to_anonymous,
         send_to_authenticated,

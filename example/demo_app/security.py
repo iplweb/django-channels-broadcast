@@ -1,6 +1,6 @@
 """Per-object subscription authorizer for the demo.
 
-This is the function ``CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER``
+This is the function ``CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER``
 points at. The consumer calls it once per channel in ``?extraChannels=``.
 
 Policy implemented here:
@@ -16,7 +16,7 @@ Pattern to replicate in a real project: parse the channel name with
 app uses (`user.has_perm`, ownership check, group membership, etc.).
 """
 
-from channels_notifications import get_obj_from_channel_name
+from channels_broadcast import get_obj_from_channel_name
 
 
 def authorize(user, channel_name):

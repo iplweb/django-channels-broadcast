@@ -1,5 +1,5 @@
 """``send_notification`` — dispatch any of the 18 send / redirect / progress
-functions in :mod:`channels_notifications.api` from the command line.
+functions in :mod:`channels_broadcast.api` from the command line.
 
 Three orthogonal axes:
 
@@ -54,7 +54,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import constants as message_constants
 from django.core.management import BaseCommand, CommandError
 
-from channels_notifications import api
+from channels_broadcast import api
 
 LEVEL_MAP = {
     "info": message_constants.INFO,
@@ -261,7 +261,7 @@ class Command(BaseCommand):
         if result is None:
             self.stdout.write(
                 self.style.WARNING(
-                    f"No-op: the relevant CHANNELS_NOTIFICATIONS_ENABLE_* "
+                    f"No-op: the relevant CHANNELS_BROADCAST_ENABLE_* "
                     f"flag is False for --audience={audience}, "
                     f"--kind={kind}."
                 )

@@ -44,7 +44,7 @@ def stubs(monkeypatch):
 
             return recorder
 
-        monkeypatch.setattr(f"channels_notifications.api.{n}", make_recorder())
+        monkeypatch.setattr(f"channels_broadcast.api.{n}", make_recorder())
     return calls
 
 
@@ -291,7 +291,7 @@ def test_user_with_unknown_username_errors():
 
 def test_noop_returns_warning_on_disabled_flag(monkeypatch, capsys):
     """If an ENABLE_* flag is off, the API returns None — command should say so."""
-    import channels_notifications.api as api
+    import channels_broadcast.api as api
 
     monkeypatch.setattr(api, "send_to_all", lambda *a, **k: None)
     call_command("send_notification", "--audience=all", "hi")
@@ -305,7 +305,7 @@ def test_noop_returns_warning_on_disabled_flag(monkeypatch, capsys):
 # to simulate a real terminal. This exercises the same code path that
 # fires when a user runs `./manage.py send_notification` from a shell.
 
-from channels_notifications.management.commands import (  # noqa: E402
+from channels_broadcast.management.commands import (  # noqa: E402
     send_notification as cmd_module,
 )
 

@@ -1,5 +1,5 @@
 /**
- * channels_notifications — vanilla JS + jQuery client.
+ * channels_broadcast — vanilla JS + jQuery client.
  *
  * Exposes `window.channelsBroadcast` with:
  *   .init(extraChannels, opts)   — opens the websocket; idempotent (calling
@@ -49,7 +49,7 @@
         var fn = cn._opts && cn._opts.onConnectionChange;
         if (typeof fn === "function") {
             try { fn(state, info || {}); }
-            catch (e) { console.debug("channels_notifications: onConnectionChange threw", e); }
+            catch (e) { console.debug("channels_broadcast: onConnectionChange threw", e); }
         }
     }
 
@@ -151,7 +151,7 @@
             ws = new WebSocket(url);
         } catch (e) {
             // Some browsers throw synchronously on bad URLs / mixed content.
-            console.warn("channels_notifications: WebSocket open failed", e);
+            console.warn("channels_broadcast: WebSocket open failed", e);
             emitState("closed", { error: String(e) });
             scheduleReconnect();
             return;
@@ -227,13 +227,13 @@
     cn.onmessage = function (event) {
         if (typeof event.data !== "string") {
             // Binary frame — we don't speak any binary protocol.
-            console.debug("channels_notifications: non-string frame ignored");
+            console.debug("channels_broadcast: non-string frame ignored");
             return;
         }
         var message;
         try { message = JSON.parse(event.data); }
         catch (e) {
-            console.warn("channels_notifications: bad JSON payload", event.data);
+            console.warn("channels_broadcast: bad JSON payload", event.data);
             return;
         }
 
@@ -257,7 +257,7 @@
             cn._render(message);
             if (typeof cn.onChime === "function" && message.sound !== false) {
                 try { cn.onChime(message); }
-                catch (e) { console.debug("channels_notifications: onChime threw", e); }
+                catch (e) { console.debug("channels_broadcast: onChime threw", e); }
             }
             return;
         }

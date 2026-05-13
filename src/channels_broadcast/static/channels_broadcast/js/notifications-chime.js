@@ -1,5 +1,5 @@
 /**
- * channels_notifications — optional audio-chime plugin.
+ * channels_broadcast — optional audio-chime plugin.
  *
  * Plays a four-note arpeggio (C5 E5 G5 C6, sine PolySynth) whenever a
  * message arrives. Off by default — load this script AFTER notifications.js
@@ -10,8 +10,8 @@
  *
  * Usage:
  *   <script src="https://unpkg.com/tone@15/build/Tone.js"></script>
- *   <script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
- *   <script src="{% static 'channels_notifications/js/notifications-chime.js' %}"></script>
+ *   <script src="{% static 'channels_broadcast/js/notifications.js' %}"></script>
+ *   <script src="{% static 'channels_broadcast/js/notifications-chime.js' %}"></script>
  *   <script>
  *     channelsBroadcast.init();
  *     channelsBroadcast.enableChime();   // installs the onChime hook
@@ -35,7 +35,7 @@
             state.synth.volume.value = -14;
             state.ready = true;
         }).catch(function (err) {
-            console.debug("channels_notifications: audio context unavailable", err);
+            console.debug("channels_broadcast: audio context unavailable", err);
         });
     }
 
@@ -48,7 +48,7 @@
             state.synth.triggerAttackRelease("G5", 0.1, now + 0.10);
             state.synth.triggerAttackRelease("C6", 0.15, now + 0.15);
         } catch (err) {
-            console.debug("channels_notifications: chime failed", err);
+            console.debug("channels_broadcast: chime failed", err);
         }
     }
 

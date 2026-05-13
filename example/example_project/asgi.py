@@ -7,7 +7,7 @@ from django.core.asgi import get_asgi_application
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "example_project.settings")
 django_asgi_app = get_asgi_application()
 
-from channels_notifications.routing import websocket_urlpatterns  # noqa: E402
+from channels_broadcast.routing import websocket_urlpatterns  # noqa: E402
 
 application = ProtocolTypeRouter(
     {

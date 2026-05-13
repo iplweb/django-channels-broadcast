@@ -16,7 +16,7 @@ tab without the user refreshing the page**. That's it. Three lines:
 
 ```python
 # In a view, signal handler, Celery task, management command, …
-from channels_notifications import send_to_user
+from channels_broadcast import send_to_user
 send_to_user(alice, "Your import finished!", level="success")
 ```
 
@@ -172,7 +172,7 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     # … your other django.contrib.* apps
     "channels",
-    "channels_notifications",
+    "channels_broadcast",
     # … your own apps
 ]
 ```
@@ -195,7 +195,7 @@ from django.core.asgi import get_asgi_application
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "myproject.settings")
 django_asgi_app = get_asgi_application()
 
-from channels_notifications.routing import websocket_urlpatterns  # noqa: E402
+from channels_broadcast.routing import websocket_urlpatterns  # noqa: E402
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
@@ -228,7 +228,7 @@ CHANNEL_LAYERS = {
 ### 5. Run migrations
 
 ```bash
-./manage.py migrate channels_notifications
+./manage.py migrate channels_broadcast
 ```
 
 (One table: `Notification`, for replay-on-reconnect.)
@@ -243,8 +243,8 @@ CHANNEL_LAYERS = {
 </script>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="{% static 'channels_notifications/js/mustache.js' %}"></script>
-<script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/mustache.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/notifications.js' %}"></script>
 <script>channelsBroadcast.init();</script>
 ```
 
@@ -263,7 +263,7 @@ Three payload families, six target variants each.
 ### Messages
 
 ```python
-from channels_notifications import (
+from channels_broadcast import (
     send_to_all, send_to_authenticated, send_to_anonymous,
     send_to_user, send_to_object, send_to_channel,
 )
@@ -287,7 +287,7 @@ task — bounce the user from a progress page to the results page without
 polling.
 
 ```python
-from channels_notifications import redirect_user, redirect_object, redirect_channel
+from channels_broadcast import redirect_user, redirect_object, redirect_channel
 
 redirect_user(user, "/reports/42/")
 redirect_object(report, "/reports/42/results/")
@@ -301,7 +301,7 @@ JS client looks for a `#notifications-progress` element by default; or
 write your own listener for `{"progress": true, "percent": "42%"}`.
 
 ```python
-from channels_notifications import progress_user, progress_object, progress_channel
+from channels_broadcast import progress_user, progress_object, progress_channel
 
 progress_user(user, 42)          # → "42%"
 progress_object(report, 75)
@@ -314,7 +314,7 @@ progress_channel("op-uid-42", 100)
 
 ## Frontend integration
 
-Three JS files ship under `static/channels_notifications/js/`:
+Three JS files ship under `static/channels_broadcast/js/`:
 
 | File | What it does |
 |---|---|
@@ -332,8 +332,8 @@ Three JS files ship under `static/channels_notifications/js/`:
 </script>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="{% static 'channels_notifications/js/mustache.js' %}"></script>
-<script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/mustache.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/notifications.js' %}"></script>
 <script>
   channelsBroadcast.init({{ extraChannels|default:"null"|json_script:"" }});
 </script>
@@ -344,8 +344,8 @@ Three JS files ship under `static/channels_notifications/js/`:
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.css">
 <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-<script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
-<script src="{% static 'channels_notifications/js/notifications-toastify.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/notifications.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/notifications-toastify.js' %}"></script>
 <script>
   channelsBroadcast.useToastify({duration: 4000, gravity: "top", position: "right"});
   channelsBroadcast.init();
@@ -358,8 +358,8 @@ After `useToastify()`, any `send_to_*("text...")` call appears as a sliding toas
 
 ```html
 <script src="https://unpkg.com/tone@15/build/Tone.js"></script>
-<script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
-<script src="{% static 'channels_notifications/js/notifications-chime.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/notifications.js' %}"></script>
+<script src="{% static 'channels_broadcast/js/notifications-chime.js' %}"></script>
 <script>
   channelsBroadcast.init();
   channelsBroadcast.enableChime();
@@ -400,10 +400,10 @@ consumer refuses to join the corresponding group and the matching
 
 | Setting | Default | What turning it off does |
 |---|---|---|
-| `CHANNELS_NOTIFICATIONS_ENABLE_ALL` | `True` | `send_to_all()` becomes a no-op and the consumer doesn't join the broadcast group. |
-| `CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED` | `True` | `send_to_authenticated()`, `send_to_user()`, `redirect_user()`, `progress_user()` are no-ops; consumer skips the authenticated-only group and the per-user channel. |
-| `CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS` | `False` | **The consumer closes anonymous connections before `.accept()` — no websocket is opened for them.** `send_to_anonymous()` is a no-op. |
-| `CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS` | `True` | `send_to_object()` / `redirect_object()` / `progress_object()` / `*_channel()` are no-ops; consumer ignores `?extraChannels=` and `?subscription_token=` subscriptions. |
+| `CHANNELS_BROADCAST_ENABLE_ALL` | `True` | `send_to_all()` becomes a no-op and the consumer doesn't join the broadcast group. |
+| `CHANNELS_BROADCAST_ENABLE_AUTHENTICATED` | `True` | `send_to_authenticated()`, `send_to_user()`, `redirect_user()`, `progress_user()` are no-ops; consumer skips the authenticated-only group and the per-user channel. |
+| `CHANNELS_BROADCAST_ENABLE_ANONYMOUS` | `False` | **The consumer closes anonymous connections before `.accept()` — no websocket is opened for them.** `send_to_anonymous()` is a no-op. |
+| `CHANNELS_BROADCAST_ENABLE_PAGE_CHANNELS` | `True` | `send_to_object()` / `redirect_object()` / `progress_object()` / `*_channel()` are no-ops; consumer ignores `?extraChannels=` and `?subscription_token=` subscriptions. |
 
 The most security-relevant flag is `ENABLE_ANONYMOUS`. Off by default so anonymous visitors don't open a connection at all — flip it on deliberately.
 
@@ -411,7 +411,7 @@ The most security-relevant flag is `ENABLE_ANONYMOUS`. Off by default so anonymo
 
 | Setting | Default | Effect |
 |---|---|---|
-| `CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER` | `None` (deny all) | Dotted path to a callable `(user, channel_name) -> bool` that decides whether a `?extraChannels=` entry is allowed. See "Security model" below. |
+| `CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER` | `None` (deny all) | Dotted path to a callable `(user, channel_name) -> bool` that decides whether a `?extraChannels=` entry is allowed. See "Security model" below. |
 
 ---
 
@@ -448,12 +448,12 @@ For `?extraChannels=` to ever subscribe, point Django at a callable:
 
 ```python
 # settings.py
-CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER = "myapp.notif.authorize"
+CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER = "myapp.notif.authorize"
 ```
 
 ```python
 # myapp/notif.py
-from channels_notifications import get_obj_from_channel_name
+from channels_broadcast import get_obj_from_channel_name
 
 def authorize(user, channel_name):
     """Return True if user is allowed to subscribe to channel_name."""
@@ -475,7 +475,7 @@ per-page UUID for a long-running background task — issue a token:
 
 ```python
 import uuid
-from channels_notifications import issue_subscription_token
+from channels_broadcast import issue_subscription_token
 
 def my_view(request):
     stream_uid = str(uuid.uuid4())
@@ -512,7 +512,7 @@ need it.
 From a Celery worker, view, or anywhere on the server side:
 
 ```python
-from channels_notifications import progress_channel, send_to_channel
+from channels_broadcast import progress_channel, send_to_channel
 
 progress_channel(stream_uid, 42)
 send_to_channel(stream_uid, "Done!", level="success")
@@ -526,7 +526,7 @@ In a class-based view:
 
 ```python
 from django.views.generic import DetailView
-from channels_notifications.mixins import ChannelSubscriberSingleObjectMixin
+from channels_broadcast.mixins import ChannelSubscriberSingleObjectMixin
 
 class ArticleDetail(ChannelSubscriberSingleObjectMixin, DetailView):
     model = Article
@@ -534,7 +534,7 @@ class ArticleDetail(ChannelSubscriberSingleObjectMixin, DetailView):
 
 Then in the template, render the channel list into a query string that
 the frontend JS hands to the websocket as `?extraChannels=…`. The
-included static files (`channels_notifications/js/notifications.js`)
+included static files (`channels_broadcast/js/notifications.js`)
 already do this — read the source for the wiring.
 
 ---
@@ -542,7 +542,7 @@ already do this — read the source for the wiring.
 ## Management command
 
 `./manage.py send_notification` reaches every function in
-`channels_notifications.api` — messages, redirects, progress — across
+`channels_broadcast.api` — messages, redirects, progress — across
 every audience target. Useful for cron jobs, ad-hoc operator pokes,
 and shell pipelines from Celery / systemd / k8s jobs.
 
@@ -625,7 +625,7 @@ or without a `%` sign. The bundled JS client updates a
 ### Exit behaviour
 
 - Success: exit 0, no output.
-- An audience the relevant `CHANNELS_NOTIFICATIONS_ENABLE_*` flag has
+- An audience the relevant `CHANNELS_BROADCAST_ENABLE_*` flag has
   disabled: exit 0 with a `No-op: ...` warning on stdout (so cron jobs
   don't fail, but you can grep for the warning if you care).
 - Bad inputs (missing `--username` for `--audience=user`, unknown
@@ -694,7 +694,7 @@ Walk this checklist in order:
 1. Is the user's tab actually open with the JS client loaded? (Open
    devtools → Network → filter on WS. You should see one connection in
    the "101 Switching Protocols" state.)
-2. Is `CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED = True` in settings?
+2. Is `CHANNELS_BROADCAST_ENABLE_AUTHENTICATED = True` in settings?
    (Default yes, but if you disabled it, `send_to_user` becomes a
    no-op.)
 3. Is your channel layer working? Try `send_to_all("hi")` from a shell
@@ -711,7 +711,7 @@ Either:
 
 - Use `ChannelSubscriberSingleObjectMixin` on the DetailView (auto-
   subscribes via `get_object()`); **and** configure
-  `CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER` (default is deny-
+  `CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER` (default is deny-
   all, so the consumer rejects the subscription request silently); **and**
   pass the `extraChannels` from context into `channelsBroadcast.init()`.
 - Or pass `?extraChannels=...` manually from your own template.
@@ -720,7 +720,7 @@ See [example/demo_app](./example/demo_app/) for a working setup.
 
 ### "Anonymous users can't subscribe to anything"
 
-By design. `CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS = False` is the
+By design. `CHANNELS_BROADCAST_ENABLE_ANONYMOUS = False` is the
 default — the consumer closes anonymous connections before `.accept()`
 so no websocket opens at all. Flip the setting to `True` if you want
 broadcast-to-anon.
@@ -756,7 +756,7 @@ don't need a placeholder div.
 
 ### "How do I write tests for notifications I trigger?"
 
-Two layers. Server-side: patch `channels_notifications.api._send`
+Two layers. Server-side: patch `channels_broadcast.api._send`
 with a recorder, then assert the right channel + payload. (See
 [tests/test_api.py](./tests/test_api.py) for examples.) End-to-end with
 real websocket: use `channels.testing.WebsocketCommunicator` — see

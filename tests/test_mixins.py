@@ -1,7 +1,7 @@
 import pytest
 from model_bakery import baker
 
-from channels_notifications.mixins import (
+from channels_broadcast.mixins import (
     ChannelSubscriberMixin,
     ChannelSubscriberSingleObjectMixin,
 )

@@ -1,7 +1,7 @@
 import pytest
 from model_bakery import baker
 
-from channels_notifications.models import Notification
+from channels_broadcast.models import Notification
 
 
 @pytest.mark.django_db
@@ -11,7 +11,7 @@ def test_notification_send_redirect(monkeypatch):
 
     calls = []
     monkeypatch.setattr(
-        "channels_notifications.models.core._send",
+        "channels_broadcast.models.core._send",
         lambda channel, data: calls.append((channel, data)),
     )
 
@@ -45,7 +45,7 @@ def test_unacknowledged_manager_filters():
 def test_on_connect_replays_unacknowledged(monkeypatch):
     sent = []
     monkeypatch.setattr(
-        "channels_notifications.models.core._send",
+        "channels_broadcast.models.core._send",
         lambda channel, data: sent.append((channel, data)),
     )
 

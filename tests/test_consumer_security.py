@@ -16,7 +16,7 @@ from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 
-from channels_notifications.security import issue_subscription_token
+from channels_broadcast.security import issue_subscription_token
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -92,7 +92,7 @@ def _only_owned(user, channel_name):
 
 
 @override_settings(
-    CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER=(
+    CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER=(
         "tests.test_consumer_security._allow_all"
     )
 )
@@ -107,7 +107,7 @@ async def test_permissive_authorizer_lets_through(alice):
 
 
 @override_settings(
-    CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER=(
+    CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER=(
         "tests.test_consumer_security._only_owned"
     )
 )
@@ -186,7 +186,7 @@ async def test_extra_channels_and_token_combine(alice):
         return ch.startswith("ext_")
 
     with override_settings(
-        CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER=(
+        CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER=(
             "tests.test_consumer_security._allow_ext"
         )
     ):

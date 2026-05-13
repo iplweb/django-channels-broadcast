@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-channels-broadcast"
-version = "0.1.0"
+version = "0.2.0"
 description = "Pluggable websocket notifications for Django: broadcast to all, authenticated, anonymous, single user, or per-object page channels — each gated by a setting."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -66,7 +66,7 @@ Issues = "https://github.com/iplweb/django-channels-broadcast/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"channels_notifications" = ["static/**/*", "templates/**/*"]
+"channels_broadcast" = ["static/**/*", "templates/**/*"]
 
 [tool.ruff]
 target-version = "py310"
@@ -78,7 +78,7 @@ ignore = ["E501"]  # let formatter handle long lines
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]
-"src/channels_notifications/migrations/*" = ["E501"]
+"src/channels_broadcast/migrations/*" = ["E501"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"

@@ -3,8 +3,8 @@ import uuid
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import DetailView, ListView, TemplateView
 
-from channels_notifications import issue_subscription_token
-from channels_notifications.mixins import ChannelSubscriberSingleObjectMixin
+from channels_broadcast import issue_subscription_token
+from channels_broadcast.mixins import ChannelSubscriberSingleObjectMixin
 
 from .models import Thing
 

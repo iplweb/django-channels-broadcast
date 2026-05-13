@@ -11,7 +11,7 @@ connection is allowed to subscribe to via ``?extraChannels=`` and
 
    Configure via::
 
-       CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER = "myapp.notif.authorize"
+       CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER = "myapp.notif.authorize"
 
    The callable receives ``(user, channel_name)`` and must return a bool.
 
@@ -42,7 +42,7 @@ from django.utils.module_loading import import_string
 
 # Salt namespaces the signed payload — different libraries signing with
 # the same SECRET_KEY won't produce interchangeable tokens.
-_SIGNING_SALT = "channels_notifications.subscription_token"
+_SIGNING_SALT = "channels_broadcast.subscription_token"
 
 # Default token lifetime if the caller doesn't pass `ttl`.
 DEFAULT_TOKEN_TTL_SECONDS = 300
@@ -55,13 +55,13 @@ def _deny_all(user: Any, channel_name: str) -> bool:
     """Default authorizer — refuses every ``?extraChannels=`` entry.
 
     Override by setting
-    ``CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER`` to a dotted path.
+    ``CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER`` to a dotted path.
     """
     return False
 
 
 def _resolve_authorizer():
-    path = getattr(settings, "CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER", None)
+    path = getattr(settings, "CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER", None)
     if not path:
         return _deny_all
     return import_string(path)

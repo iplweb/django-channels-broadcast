@@ -1,4 +1,4 @@
-from channels_notifications.core import convert_obj_to_channel_name
+from channels_broadcast.core import convert_obj_to_channel_name
 
 
 class ChannelSubscriberMixin:

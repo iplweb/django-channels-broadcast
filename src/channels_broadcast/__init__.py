@@ -1,9 +1,9 @@
-"""channels_notifications — pluggable websocket notification dispatch for Django.
+"""channels_broadcast — pluggable websocket notification dispatch for Django.
 
 Public API:
 
     # Messages (rendered as inline/toast notifications):
-    from channels_notifications import (
+    from channels_broadcast import (
         send_to_all,             # broadcast to every connected client
         send_to_authenticated,   # broadcast to every authenticated user
         send_to_anonymous,       # broadcast to every anonymous visitor
@@ -13,32 +13,32 @@ Public API:
     )
 
     # Redirects (tell the receiving page to navigate):
-    from channels_notifications import (
+    from channels_broadcast import (
         redirect_user, redirect_object, redirect_channel,
     )
 
     # Progress bar updates:
-    from channels_notifications import (
+    from channels_broadcast import (
         progress_user, progress_object, progress_channel,
     )
 
     # Channel-name helpers (round-trippable):
-    from channels_notifications import (
+    from channels_broadcast import (
         convert_obj_to_channel_name, get_obj_from_channel_name,
         get_channel_name_for_user,
     )
 
     # Signed subscription tokens (for server-issued UID channels):
-    from channels_notifications import issue_subscription_token
+    from channels_broadcast import issue_subscription_token
 
 Audience channels are individually gated via Django settings — see
-``channels_notifications.settings``. Per-object subscriptions and
+``channels_broadcast.settings``. Per-object subscriptions and
 custom UID channels require either an authorizer
-(``CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER``) or a server-issued
-subscription token. See ``channels_notifications.security``.
+(``CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER``) or a server-issued
+subscription token. See ``channels_broadcast.security``.
 """
 
-from channels_notifications.api import (
+from channels_broadcast.api import (
     progress_channel,
     progress_object,
     progress_user,
@@ -52,12 +52,12 @@ from channels_notifications.api import (
     send_to_object,
     send_to_user,
 )
-from channels_notifications.core import (
+from channels_broadcast.core import (
     convert_obj_to_channel_name,
     get_channel_name_for_user,
     get_obj_from_channel_name,
 )
-from channels_notifications.security import issue_subscription_token
+from channels_broadcast.security import issue_subscription_token
 
 __all__ = [
     # messages

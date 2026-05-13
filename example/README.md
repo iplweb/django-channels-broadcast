@@ -39,7 +39,7 @@ tabs receive the message:
 | user → <username> | ✓ (that user only) | — | ✓ (if same user) |
 | **object → Thing PK** | — | — | **✓ (only that Thing's page)** |
 
-Toggle `CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS = False` in
+Toggle `CHANNELS_BROADCAST_ENABLE_ANONYMOUS = False` in
 `example_project/settings.py` and reload the anonymous tab — its
 websocket closes immediately on connect.
 
@@ -48,7 +48,7 @@ websocket closes immediately on connect.
 - `example_project/settings.py` — every gate flag set explicitly so
   you can toggle and watch the effect.
 - `example_project/asgi.py` — `AuthMiddlewareStack` + URLRouter wiring
-  `channels_notifications.routing.websocket_urlpatterns`.
+  `channels_broadcast.routing.websocket_urlpatterns`.
 - `example_project/views.py` — single endpoint dispatching to each
   `send_to_*` API (incl. `send_to_object` from the new "object"
   audience option).

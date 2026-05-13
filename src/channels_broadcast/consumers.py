@@ -4,19 +4,19 @@ The consumer composes the set of channels to join from four sources, in
 order:
 
 1. **Audience groups** derived from ``scope["user"]`` and the
-   ``CHANNELS_NOTIFICATIONS_ENABLE_*`` flags. Always trusted —
+   ``CHANNELS_BROADCAST_ENABLE_*`` flags. Always trusted —
    the auth comes from the Django session cookie.
 
 2. **Per-user channel** (authenticated users only). Always trusted.
 
 3. **``?extraChannels=`` query param** — each channel name is passed
    through the configured subscription authorizer
-   (``CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER``). Channels the
+   (``CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER``). Channels the
    authorizer rejects are silently dropped. Default authorizer denies
    everything, so this is opt-in.
 
 4. **``?subscription_token=`` query param** — a server-issued, signed
-   token (see ``channels_notifications.security.issue_subscription_token``)
+   token (see ``channels_broadcast.security.issue_subscription_token``)
    that binds a user to a set of channel names. The channels in a valid
    token are subscribed without consulting the authorizer.
 
@@ -31,9 +31,9 @@ from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
 from django.utils.functional import cached_property
 
-from channels_notifications import settings as cn_settings
-from channels_notifications.core import get_channel_name_for_user
-from channels_notifications.security import (
+from channels_broadcast import settings as cn_settings
+from channels_broadcast.core import get_channel_name_for_user
+from channels_broadcast.security import (
     authorize_extra_channel,
     verify_subscription_token,
 )
@@ -125,7 +125,7 @@ class NotificationsConsumer(WebsocketConsumer):
         self.subscribe()
         self.accept()
 
-        from channels_notifications.models import Notification
+        from channels_broadcast.models import Notification
 
         Notification.objects.on_connect(self.channels)
 
@@ -139,7 +139,7 @@ class NotificationsConsumer(WebsocketConsumer):
         text_data_json = json.loads(text_data)
 
         if text_data_json.get("type") == "ack_message":
-            from channels_notifications.models import Notification
+            from channels_broadcast.models import Notification
 
             try:
                 n = Notification.objects.get(id=text_data_json["id"])

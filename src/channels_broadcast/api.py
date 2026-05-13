@@ -10,14 +10,14 @@ Audience targets: ``all``, ``authenticated``, ``anonymous``, ``user``,
 ``object``, plus a raw ``channel`` escape hatch.
 
 Each function is a no-op (returning ``None``) when the relevant
-``CHANNELS_NOTIFICATIONS_ENABLE_*`` flag in
-:mod:`channels_notifications.settings` is False.
+``CHANNELS_BROADCAST_ENABLE_*`` flag in
+:mod:`channels_broadcast.settings` is False.
 """
 
 from django.contrib.messages import constants as message_constants
 
-from channels_notifications import settings as cn_settings
-from channels_notifications.core import (
+from channels_broadcast import settings as cn_settings
+from channels_broadcast.core import (
     Message,
     _send,
     convert_obj_to_channel_name,
@@ -55,7 +55,7 @@ def _progress_payload(percent) -> dict:
 def send_to_all(text: str, *, level="info", close_url: str | None = None):
     """Broadcast a message to every connected client (logged-in + anonymous).
 
-    No-op if ``CHANNELS_NOTIFICATIONS_ENABLE_ALL`` is False.
+    No-op if ``CHANNELS_BROADCAST_ENABLE_ALL`` is False.
     """
     if not cn_settings.is_all_enabled():
         return None
@@ -65,7 +65,7 @@ def send_to_all(text: str, *, level="info", close_url: str | None = None):
 def send_to_authenticated(text: str, *, level="info", close_url: str | None = None):
     """Broadcast a message to every authenticated user.
 
-    No-op if ``CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED`` is False.
+    No-op if ``CHANNELS_BROADCAST_ENABLE_AUTHENTICATED`` is False.
     """
     if not cn_settings.is_authenticated_enabled():
         return None
@@ -77,7 +77,7 @@ def send_to_authenticated(text: str, *, level="info", close_url: str | None = No
 def send_to_anonymous(text: str, *, level="info", close_url: str | None = None):
     """Broadcast a message to every anonymous visitor.
 
-    No-op if ``CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS`` is False — also,
+    No-op if ``CHANNELS_BROADCAST_ENABLE_ANONYMOUS`` is False — also,
     if the flag is off the consumer rejects anonymous connections outright,
     so no websocket is ever opened for them.
     """
@@ -90,7 +90,7 @@ def send_to_user(user, text: str, *, level="info", close_url: str | None = None)
     """Send a message to all open pages of one specific user.
 
     Accepts a Django user instance or anything with ``.pk`` and ``.username``.
-    No-op if ``CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED`` is False.
+    No-op if ``CHANNELS_BROADCAST_ENABLE_AUTHENTICATED`` is False.
     """
     if not cn_settings.is_authenticated_enabled():
         return None
@@ -103,7 +103,7 @@ def send_to_object(obj, text: str, *, level="info", close_url: str | None = None
 
     The page joins the channel ``<app_label>.<model>-<pk>`` on connect; this
     function broadcasts to that group. No-op if
-    ``CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS`` is False.
+    ``CHANNELS_BROADCAST_ENABLE_PAGE_CHANNELS`` is False.
     """
     if not cn_settings.is_page_channels_enabled():
         return None

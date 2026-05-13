@@ -19,7 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.staticfiles",
     "channels",
-    "channels_notifications",
+    "channels_broadcast",
     "demo_app",
 ]
 
@@ -65,16 +65,16 @@ CHANNEL_LAYERS = {
     },
 }
 
-# ---------------------- channels_notifications audience gates -------
+# ---------------------- channels_broadcast audience gates -------
 # Demonstrates each flag. Anonymous users are off by default — flip on
 # below to see anonymous broadcast working.
-CHANNELS_NOTIFICATIONS_ENABLE_ALL = True
-CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED = True
-CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS = True
-CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS = True
+CHANNELS_BROADCAST_ENABLE_ALL = True
+CHANNELS_BROADCAST_ENABLE_AUTHENTICATED = True
+CHANNELS_BROADCAST_ENABLE_ANONYMOUS = True
+CHANNELS_BROADCAST_ENABLE_PAGE_CHANNELS = True
 
 # Authorizer for ?extraChannels= subscriptions. Library default is to
 # DENY every extra channel — you must point this setting at a function
 # that decides which channels each user may join. See
 # demo_app/security.py for the function this demo uses (owner-only).
-CHANNELS_NOTIFICATIONS_SUBSCRIPTION_AUTHORIZER = "demo_app.security.authorize"
+CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER = "demo_app.security.authorize"

@@ -1,32 +1,32 @@
 import pytest
 from django.test import override_settings
 
-from channels_notifications import settings as cn_settings
+from channels_broadcast import settings as cn_settings
 
 
 def test_defaults_match_documented_baseline():
     assert cn_settings.DEFAULTS == {
-        "CHANNELS_NOTIFICATIONS_ENABLE_ALL": True,
-        "CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED": True,
-        "CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS": False,
-        "CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS": True,
+        "CHANNELS_BROADCAST_ENABLE_ALL": True,
+        "CHANNELS_BROADCAST_ENABLE_AUTHENTICATED": True,
+        "CHANNELS_BROADCAST_ENABLE_ANONYMOUS": False,
+        "CHANNELS_BROADCAST_ENABLE_PAGE_CHANNELS": True,
     }
 
 
 @pytest.mark.parametrize(
     "setting,getter",
     [
-        ("CHANNELS_NOTIFICATIONS_ENABLE_ALL", cn_settings.is_all_enabled),
+        ("CHANNELS_BROADCAST_ENABLE_ALL", cn_settings.is_all_enabled),
         (
-            "CHANNELS_NOTIFICATIONS_ENABLE_AUTHENTICATED",
+            "CHANNELS_BROADCAST_ENABLE_AUTHENTICATED",
             cn_settings.is_authenticated_enabled,
         ),
         (
-            "CHANNELS_NOTIFICATIONS_ENABLE_ANONYMOUS",
+            "CHANNELS_BROADCAST_ENABLE_ANONYMOUS",
             cn_settings.is_anonymous_enabled,
         ),
         (
-            "CHANNELS_NOTIFICATIONS_ENABLE_PAGE_CHANNELS",
+            "CHANNELS_BROADCAST_ENABLE_PAGE_CHANNELS",
             cn_settings.is_page_channels_enabled,
         ),
     ],

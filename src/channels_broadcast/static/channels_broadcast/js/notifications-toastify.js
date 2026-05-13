@@ -1,5 +1,5 @@
 /**
- * channels_notifications — opt-in toastify-js renderer.
+ * channels_broadcast — opt-in toastify-js renderer.
  *
  * Replaces the default jQuery+Mustache rendering with right-side toast
  * popups via Toastify (https://github.com/apvarun/toastify-js — MIT,
@@ -8,8 +8,8 @@
  * Usage:
  *   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.css">
  *   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
- *   <script src="{% static 'channels_notifications/js/notifications.js' %}"></script>
- *   <script src="{% static 'channels_notifications/js/notifications-toastify.js' %}"></script>
+ *   <script src="{% static 'channels_broadcast/js/notifications.js' %}"></script>
+ *   <script src="{% static 'channels_broadcast/js/notifications-toastify.js' %}"></script>
  *   <script>
  *     channelsBroadcast.useToastify({duration: 4000, gravity: "top", position: "right"});
  *     channelsBroadcast.init();
@@ -37,7 +37,7 @@
     window.channelsBroadcast.useToastify = function (opts) {
         if (typeof Toastify === "undefined") {
             console.warn(
-                "channels_notifications: Toastify is not loaded — call useToastify() " +
+                "channels_broadcast: Toastify is not loaded — call useToastify() " +
                 "AFTER including <script src='.../toastify-js'></script>."
             );
             return;
@@ -74,7 +74,7 @@
             // Chime hook still applies, if installed.
             if (typeof this.onChime === "function" && message.sound !== false) {
                 try { this.onChime(message); }
-                catch (e) { console.debug("channels_notifications: onChime threw", e); }
+                catch (e) { console.debug("channels_broadcast: onChime threw", e); }
             }
         };
     };
