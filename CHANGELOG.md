@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-18
+
+### Fixed
+
+- `notifications.js` no longer emits a useless `?extraChannels=` query
+  param when there are no channels to subscribe to. `normalizeExtraChannels`
+  now returns `null` (→ param omitted) for an empty array, the already-JSON
+  strings `"[]"`, `'""'` and `"null"`, and whitespace-only input. The `'""'`
+  case is the common Django footgun where `{{ extraChannels|json_script }}`
+  on an undefined context variable renders `json.dumps('') === '""'`, which
+  used to leak as `?extraChannels=%22%22`. Non-empty arrays and non-JSON
+  strings are unchanged (the latter still pass through verbatim).
+
 ## [0.2.0] - 2026-05-13
 
 ### Changed (breaking)
