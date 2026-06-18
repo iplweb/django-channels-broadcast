@@ -83,9 +83,28 @@
     function normalizeExtraChannels(x) {
         // The server expects ?extraChannels=<JSON-array>. Accept array (auto-stringify)
         // or string (assume already-JSON); reject anything else.
+        //
+        // Returning null tells buildUrl() to omit the param entirely. We do that
+        // for every "no channels" shape so we never emit a useless query string
+        // like ?extraChannels=%5B%5D ([]) or ?extraChannels=%22%22 (""). The
+        // latter is the classic Django footgun: {{ undefined|json_script }}
+        // renders json.dumps('') === '""', which is a truthy 2-char string.
         if (x == null) return null;
-        if (Array.isArray(x)) return JSON.stringify(x);
-        if (typeof x === "string") return x;  // caller did the work
+        if (Array.isArray(x)) return x.length ? JSON.stringify(x) : null;
+        if (typeof x === "string") {
+            var s = x.trim();
+            if (s === "") return null;
+            try {
+                var parsed = JSON.parse(s);
+                // Already-JSON that isn't a non-empty array carries no channels
+                // ([], "", null, 42, {}): drop it instead of forwarding noise.
+                if (!Array.isArray(parsed) || parsed.length === 0) return null;
+            } catch (e) {
+                // Not JSON — honour the legacy "caller did the work" contract
+                // and pass the raw string through verbatim.
+            }
+            return s;  // verbatim — preserves the caller's exact JSON formatting
+        }
         return null;
     }
 

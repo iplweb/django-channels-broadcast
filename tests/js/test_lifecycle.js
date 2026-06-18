@@ -61,6 +61,42 @@ QUnit.test("non-array/non-string extraChannels is silently dropped", function (a
     assert.equal(FakeWebSocket.last.url, "ws://localhost/asgi/notifications/");
 });
 
+QUnit.test("empty array drops the param (no ?extraChannels=%5B%5D)", function (assert) {
+    channelsBroadcast.init([], { reconnect: false });
+    assert.equal(FakeWebSocket.last.url, "ws://localhost/asgi/notifications/");
+});
+
+QUnit.test("'[]' string (already-JSON empty list) drops the param", function (assert) {
+    channelsBroadcast.init("[]", { reconnect: false });
+    assert.equal(FakeWebSocket.last.url, "ws://localhost/asgi/notifications/");
+});
+
+QUnit.test("'\"\"' from {{ undefined|json_script }} drops the param (no %22%22)", function (assert) {
+    // Django's {{ extraChannels|json_script }} on an undefined var renders
+    // json.dumps('') === '""'. That used to leak as ?extraChannels=%22%22.
+    channelsBroadcast.init('""', { reconnect: false });
+    assert.equal(FakeWebSocket.last.url, "ws://localhost/asgi/notifications/");
+});
+
+QUnit.test("'null' string (already-JSON null) drops the param", function (assert) {
+    channelsBroadcast.init("null", { reconnect: false });
+    assert.equal(FakeWebSocket.last.url, "ws://localhost/asgi/notifications/");
+});
+
+QUnit.test("whitespace-only string drops the param", function (assert) {
+    channelsBroadcast.init("   ", { reconnect: false });
+    assert.equal(FakeWebSocket.last.url, "ws://localhost/asgi/notifications/");
+});
+
+QUnit.test("non-JSON string still passes through verbatim (legacy contract)", function (assert) {
+    // A caller that hand-built a non-JSON channel token keeps working.
+    channelsBroadcast.init("ch-token", { reconnect: false });
+    assert.equal(
+        FakeWebSocket.last.url,
+        "ws://localhost/asgi/notifications/?extraChannels=ch-token"
+    );
+});
+
 
 QUnit.module("channelsBroadcast.init — re-entrant", {
     beforeEach: tearDown,
