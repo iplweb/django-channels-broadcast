@@ -198,16 +198,32 @@
     cn.init = function (extraChannels, opts) {
         opts = opts || {};
 
+        // Merge, don't replace: preserve config this call omits so independent
+        // callers compose on the single shared socket instead of clobbering
+        // each other. A host page may init its own audience `extraChannels`
+        // while a widget (e.g. django-liveops) inits a `subscriptionToken` —
+        // either call order must end with BOTH on the socket. Capture the prior
+        // config BEFORE close() (which clears it), then fold in the fields this
+        // call actually provides. To reset everything, call close().
+        var prev = cn._opts || {};
+
         // Re-entrant: close any previous socket + drop its listeners.
         cn.close({ silent: true });
 
         cn._closed = false;
         cn._listeners = [];
         cn._opts = {
-            extraChannels: extraChannels,
-            subscriptionToken: opts.subscriptionToken,
-            path: opts.path,
-            onConnectionChange: opts.onConnectionChange,
+            // `null`/`undefined` here means "not provided by this call" → keep
+            // the previously-set value. To reset everything, call close().
+            extraChannels:
+                (extraChannels != null) ? extraChannels : prev.extraChannels,
+            subscriptionToken: (opts.subscriptionToken !== undefined)
+                ? opts.subscriptionToken
+                : prev.subscriptionToken,
+            path: (opts.path !== undefined) ? opts.path : prev.path,
+            onConnectionChange: (opts.onConnectionChange !== undefined)
+                ? opts.onConnectionChange
+                : prev.onConnectionChange,
         };
         cn._reconnect = (opts.reconnect === false)
             ? { enabled: false, attempts: 0 }
@@ -239,6 +255,11 @@
         }
         removeAllManagedListeners();
         if (!opts.silent) emitState("closed", { intentional: true });
+        // Forget config so a later init() starts from a clean slate rather than
+        // merging onto stale channels (the re-entrant close() inside init()
+        // runs AFTER init() has already captured `prev`, so the merge is
+        // unaffected). Reset last — emitState above still needs onConnectionChange.
+        cn._opts = null;
     };
 
     cn.goTo = function (url) { W.location.href = url; };

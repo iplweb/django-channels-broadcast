@@ -395,3 +395,61 @@ QUnit.test("repeated init() does not pile up pagehide listeners", function (asse
     assert.equal(openAfter.length, 0, "no leaked listeners reopened anything");
     assert.equal(FakeWebSocket.constructed.length, beforeCount, "no new sockets opened");
 });
+
+
+QUnit.module("channelsBroadcast.init — merge/compose", {
+    beforeEach: tearDown,
+    afterEach: tearDown,
+});
+
+// Independent callers must compose on the single shared socket: a host page
+// inits audience channels; a widget (django-liveops) inits a subscription
+// token. Neither call provides the other's field, so a REPLACE would drop it —
+// the exact regression where a liveop's live page lost updates because the
+// host's audience init() ran and wiped the token subscription (or vice-versa).
+
+QUnit.test("audience-then-token: both land on the socket", function (assert) {
+    channelsBroadcast.init(["aud"], { reconnect: false });
+    channelsBroadcast.init(null, { subscriptionToken: "tok.123", reconnect: false });
+    var url = FakeWebSocket.last.url;
+    assert.ok(url.indexOf("extraChannels=") !== -1, "audience preserved");
+    assert.ok(url.indexOf("subscription_token=tok.123") !== -1, "token added");
+});
+
+QUnit.test("token-then-audience: order-independent, both land", function (assert) {
+    channelsBroadcast.init(null, { subscriptionToken: "tok.123", reconnect: false });
+    channelsBroadcast.init(["aud"], { reconnect: false });
+    var url = FakeWebSocket.last.url;
+    assert.ok(url.indexOf("extraChannels=") !== -1, "audience added");
+    assert.ok(url.indexOf("subscription_token=tok.123") !== -1, "token preserved");
+});
+
+QUnit.test("chain to next op: swaps token, keeps audience", function (assert) {
+    channelsBroadcast.init(["aud"], { subscriptionToken: "tok.1", reconnect: false });
+    channelsBroadcast.init(null, { subscriptionToken: "tok.2", reconnect: false });
+    var url = FakeWebSocket.last.url;
+    assert.ok(url.indexOf("extraChannels=") !== -1, "audience preserved across chain");
+    assert.ok(url.indexOf("subscription_token=tok.2") !== -1, "token swapped to next op");
+    assert.ok(url.indexOf("subscription_token=tok.1") === -1, "old token gone");
+});
+
+QUnit.test("close() resets config — next init() starts clean", function (assert) {
+    channelsBroadcast.init(["aud"], { subscriptionToken: "tok.1", reconnect: false });
+    channelsBroadcast.close({ silent: true });
+    channelsBroadcast.init(null, { reconnect: false });
+    assert.equal(
+        FakeWebSocket.last.url,
+        "ws://localhost/asgi/notifications/",
+        "no stale audience/token leaked past close()"
+    );
+});
+
+QUnit.test("explicit empty array clears channels (token preserved)", function (assert) {
+    // normalizeExtraChannels drops [] from the URL, so an explicit empty array
+    // is a real "clear audience" signal while leaving the token intact.
+    channelsBroadcast.init(["aud"], { subscriptionToken: "tok.1", reconnect: false });
+    channelsBroadcast.init([], { reconnect: false });
+    var url = FakeWebSocket.last.url;
+    assert.ok(url.indexOf("extraChannels=") === -1, "empty array clears audience");
+    assert.ok(url.indexOf("subscription_token=tok.1") !== -1, "token still preserved");
+});
