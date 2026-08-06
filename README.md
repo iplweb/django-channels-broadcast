@@ -414,6 +414,12 @@ consumer refuses to join the corresponding group and the matching
 
 The most security-relevant flag is `ENABLE_ANONYMOUS`. Off by default so anonymous visitors don't open a connection at all — flip it on deliberately.
 
+Every `send_to_*` / `redirect_*` / `progress_*` function reports which of
+the two happened: `True` when the payload was handed to the channel layer,
+`None` when the gate turned the call into a no-op. (`True` means
+"dispatched", not "the browser rendered it" — the channel layer issues no
+delivery receipt.)
+
 ### Subscription authorization
 
 | Setting | Default | Effect |
@@ -638,7 +644,7 @@ or without a `%` sign. The bundled JS client updates a
 
 ### Exit behaviour
 
-- Success: exit 0, no output.
+- Success: exit 0 with a `Sent: --audience=…, --kind=…` line on stdout.
 - An audience the relevant `CHANNELS_BROADCAST_ENABLE_*` flag has
   disabled: exit 0 with a `No-op: ...` warning on stdout (so cron jobs
   don't fail, but you can grep for the warning if you care).

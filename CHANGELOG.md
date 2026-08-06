@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `send_notification` no longer prints `No-op: the relevant
+  CHANNELS_BROADCAST_ENABLE_* flag is False …` after a message that was
+  actually delivered. The command inferred "no-op" from a `None` return
+  value, but `channel_layer.group_send()` / `.send()` return `None` *on
+  success* — so every single invocation looked like a no-op, for every
+  audience and every kind.
+
+### Changed
+
+- Every `send_to_*` / `redirect_*` / `progress_*` function in
+  `channels_broadcast.api` now returns `True` once the payload has been
+  handed to the channel layer, and `None` (unchanged) when the relevant
+  `CHANNELS_BROADCAST_ENABLE_*` flag made it a no-op. Previously they
+  forwarded the channel layer's own return value, which is `None`
+  regardless of outcome. The documented contract ("no-op returns
+  `None`") is unchanged — it just became true.
+- `send_notification` now confirms a successful dispatch with a
+  `Sent: --audience=…, --kind=…` line on stdout.
+
 ## [0.2.3] - 2026-08-07
 
 ### Added

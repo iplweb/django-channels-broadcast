@@ -63,6 +63,11 @@ def _send(channel_name: str, data: dict):
     Channel names starting with ``"specific"`` are dispatched via
     ``channel_layer.send`` (individual channel); everything else goes
     through ``group_send``.
+
+    The return value is whatever the channel layer returns — which is
+    ``None`` on success for every stock backend. Do **not** read it as a
+    delivery signal; :func:`channels_broadcast.api._deliver` supplies the
+    explicit success sentinel that callers should use instead.
     """
     channel_layer = get_channel_layer()
     if channel_layer is None:

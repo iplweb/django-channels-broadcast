@@ -257,8 +257,16 @@ class Command(BaseCommand):
         payload = self._resolve_payload(options, kind)
 
         fn = self._dispatch_fn(audience, kind)
-        result = self._invoke(fn, target, payload, kind, level)
-        if result is None:
+        # The api.* functions return a truthy sentinel once the payload has
+        # been handed to the channel layer, and None when the relevant
+        # ENABLE_* flag turned the call into a no-op. Do not try to infer
+        # this from the channel layer itself: group_send()/send() return
+        # None *on success*, so a None from down there means nothing.
+        if self._invoke(fn, target, payload, kind, level):
+            self.stdout.write(
+                self.style.SUCCESS(f"Sent: --audience={audience}, --kind={kind}.")
+            )
+        else:
             self.stdout.write(
                 self.style.WARNING(
                     f"No-op: the relevant CHANNELS_BROADCAST_ENABLE_* "
