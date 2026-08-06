@@ -825,8 +825,9 @@ If you want the quick reference rather than the prose:
 |---------|------|------|------|------|-----------------------------|
 | 5.2 LTS | ✓    | ✓    | ✓    | ✓    | Active LTS (until Apr 2028) |
 | 6.0     | —    | —    | ✓    | ✓    | Active                      |
+| 6.1     | —    | —    | ✓    | ✓    | Active                      |
 
-(Python 3.10–3.13 supported. Django 6.0 dropped support for Python ≤ 3.11,
+(Python 3.10–3.13 supported. Django 6.0 and 6.1 require Python ≥ 3.12,
 so those cells are intentionally blank.)
 
 ### Other dependencies
