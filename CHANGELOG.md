@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-07
+
+> Released as a MINOR, not a patch: the return values of the **public** API
+> change. The `send_to_*` / `redirect_*` / `progress_*` family is re-exported
+> from `channels_broadcast/__init__.py` and listed in `__all__`, and until now
+> it returned `None` both on success and on a flag-disabled no-op. Success now
+> yields an explicit truthy sentinel, so code shaped like
+> `if send_to_user(...): ...` — previously always false — starts behaving
+> correctly. The documented contract ("no-op ⇒ `None`") is unchanged; it simply
+> became true.
+
 ### Fixed
 
 - `send_notification` no longer prints `No-op: the relevant
