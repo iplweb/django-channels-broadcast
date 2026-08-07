@@ -17,6 +17,7 @@ tab without the user refreshing the page**. That's it. Three lines:
 ```python
 # In a view, signal handler, Celery task, management command, …
 from channels_broadcast import send_to_user
+
 send_to_user(alice, "Your import finished!", level="success")
 ```
 
@@ -167,7 +168,7 @@ pip install django-channels-broadcast
 ```python
 # settings.py
 INSTALLED_APPS = [
-    "daphne",                       # MUST be first
+    "daphne",  # MUST be first
     "django.contrib.admin",
     "django.contrib.auth",
     # … your other django.contrib.* apps
@@ -197,10 +198,12 @@ django_asgi_app = get_asgi_application()
 
 from channels_broadcast.routing import websocket_urlpatterns  # noqa: E402
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
-})
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
+    }
+)
 ```
 
 ### 4. Configure a channel layer
@@ -264,8 +267,12 @@ Three payload families, six target variants each.
 
 ```python
 from channels_broadcast import (
-    send_to_all, send_to_authenticated, send_to_anonymous,
-    send_to_user, send_to_object, send_to_channel,
+    send_to_all,
+    send_to_authenticated,
+    send_to_anonymous,
+    send_to_user,
+    send_to_object,
+    send_to_channel,
 )
 
 send_to_all("System maintenance starts in 10 minutes.", level="warning")
@@ -273,7 +280,7 @@ send_to_authenticated("New report available.")
 send_to_anonymous("Welcome — sign in to save your work.")
 send_to_user(user, "Your import finished.")
 send_to_object(article, "Someone just commented on this page.")
-send_to_channel("op-uid-42", "Step 3 of 5 complete.")   # raw channel name
+send_to_channel("op-uid-42", "Step 3 of 5 complete.")  # raw channel name
 ```
 
 `level` accepts a `django.contrib.messages` constant (`INFO`, `SUCCESS`,
@@ -303,7 +310,7 @@ write your own listener for `{"progress": true, "percent": "42%"}`.
 ```python
 from channels_broadcast import progress_user, progress_object, progress_channel
 
-progress_user(user, 42)          # → "42%"
+progress_user(user, 42)  # → "42%"
 progress_object(report, 75)
 progress_channel("op-uid-42", 100)
 ```
@@ -455,6 +462,7 @@ CHANNELS_BROADCAST_SUBSCRIPTION_AUTHORIZER = "myapp.notif.authorize"
 # myapp/notif.py
 from channels_broadcast import get_obj_from_channel_name
 
+
 def authorize(user, channel_name):
     """Return True if user is allowed to subscribe to channel_name."""
     try:
@@ -477,17 +485,22 @@ per-page UUID for a long-running background task — issue a token:
 import uuid
 from channels_broadcast import issue_subscription_token
 
+
 def my_view(request):
     stream_uid = str(uuid.uuid4())
     token = issue_subscription_token(
-        user=request.user,            # bound to this user (or None for anon)
+        user=request.user,  # bound to this user (or None for anon)
         channels=[stream_uid],
-        ttl=300,                      # 5 minutes
+        ttl=300,  # 5 minutes
     )
-    return render(request, "stream.html", {
-        "stream_uid": stream_uid,
-        "subscription_token": token,
-    })
+    return render(
+        request,
+        "stream.html",
+        {
+            "stream_uid": stream_uid,
+            "subscription_token": token,
+        },
+    )
 ```
 
 ```html
@@ -527,6 +540,7 @@ In a class-based view:
 ```python
 from django.views.generic import DetailView
 from channels_broadcast.mixins import ChannelSubscriberSingleObjectMixin
+
 
 class ArticleDetail(ChannelSubscriberSingleObjectMixin, DetailView):
     model = Article
@@ -825,8 +839,9 @@ If you want the quick reference rather than the prose:
 |---------|------|------|------|------|-----------------------------|
 | 5.2 LTS | ✓    | ✓    | ✓    | ✓    | Active LTS (until Apr 2028) |
 | 6.0     | —    | —    | ✓    | ✓    | Active                      |
+| 6.1     | —    | —    | ✓    | ✓    | Active                      |
 
-(Python 3.10–3.13 supported. Django 6.0 dropped support for Python ≤ 3.11,
+(Python 3.10–3.13 supported. Django 6.0 and 6.1 require Python ≥ 3.12,
 so those cells are intentionally blank.)
 
 ### Other dependencies
