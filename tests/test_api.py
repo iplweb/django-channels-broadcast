@@ -128,3 +128,40 @@ def test_payload_translates_integer_levels(captured):
 
     api.send_to_all("hi", level=constants.ERROR)
     assert captured[0][1]["cssClass"] == "error"
+
+
+# ------------------------------------------------- return-value contract
+#
+# Truthy == dispatched, None == no-op. It has to be a sentinel produced by
+# the api layer: channel_layer.group_send()/send() return None *on success*,
+# so forwarding their return value would make every call look like a no-op.
+
+
+@pytest.mark.django_db
+def test_every_sender_returns_truthy_when_enabled(captured):
+    from tests.testapp.models import Thing
+
+    user = get_user_model().objects.create_user(username="alice", password="x")
+    obj = baker.make(Thing)
+
+    results = [
+        api.send_to_all("hi"),
+        api.send_to_authenticated("hi"),
+        api.send_to_user(user, "hi"),
+        api.send_to_object(obj, "hi"),
+        api.send_to_channel("stream-abc", "hi"),
+        api.redirect_user(user, "/x/"),
+        api.redirect_object(obj, "/x/"),
+        api.redirect_channel("stream-abc", "/x/"),
+        api.progress_user(user, 10),
+        api.progress_object(obj, 10),
+        api.progress_channel("stream-abc", 10),
+    ]
+
+    assert len(captured) == len(results)
+    assert all(r is True for r in results), results
+
+
+def test_sender_returns_truthy_over_the_real_channel_layer():
+    """Same contract without patching _send — the transport returns None."""
+    assert api.send_to_all("hi") is True

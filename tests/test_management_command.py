@@ -3,11 +3,23 @@
 The command exposes all 14 distinct (kind, audience) combinations that
 are valid in the API. Each test stubs the corresponding api.* function
 and asserts the right one was dispatched with the right target.
+
+Stubs answer "was the right function called with the right target?" —
+they cannot answer "does the command report delivery correctly?", because
+a stub's return value is whatever the test says it is. That question is
+covered at the bottom of this file by tests that keep the real api.*
+functions and let them talk to the real InMemoryChannelLayer.
 """
 
 import pytest
+from asgiref.sync import async_to_sync
+from channels.layers import channel_layers, get_channel_layer
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
+from django.test import override_settings
+
+from channels_broadcast import settings as cn_settings
+from channels_broadcast.core import get_channel_name_for_user
 
 
 @pytest.fixture
@@ -40,7 +52,8 @@ def stubs(monkeypatch):
         def make_recorder(_name=n):
             def recorder(*args, **kwargs):
                 calls[_name].append((args, kwargs))
-                return object()  # truthy sentinel — not a no-op
+                # Mirror the real contract: True == dispatched, None == no-op.
+                return True
 
             return recorder
 
@@ -286,17 +299,100 @@ def test_user_with_unknown_username_errors():
         )
 
 
-# ==================================================== noop reporting
+# ============================ delivery reporting (no stubbing at all)
+#
+# These tests deliberately do NOT use the `stubs` fixture. A stub decides
+# its own return value, so it can only ever confirm that the command
+# believes what it is told. What follows exercises the real api.*
+# functions against the real InMemoryChannelLayer configured in
+# tests/settings.py, and cross-checks the command's report against
+# whether a frame actually landed on the channel.
 
 
-def test_noop_returns_warning_on_disabled_flag(monkeypatch, capsys):
-    """If an ENABLE_* flag is off, the API returns None — command should say so."""
-    import channels_broadcast.api as api
+@pytest.fixture
+def layer():
+    """A fresh InMemoryChannelLayer, discarded afterwards.
 
-    monkeypatch.setattr(api, "send_to_all", lambda *a, **k: None)
-    call_command("send_notification", "--audience=all", "hi")
+    The layer is a process-global cache; resetting it keeps queued frames
+    from leaking between tests.
+    """
+    channel_layers.backends.pop("default", None)
+    yield get_channel_layer()
+    channel_layers.backends.pop("default", None)
+
+
+def _subscribe(layer, group):
+    """Join ``group`` with a fresh channel and return its name."""
+    channel = async_to_sync(layer.new_channel)()
+    async_to_sync(layer.group_add)(group, channel)
+    return channel
+
+
+def _received(layer, channel):
+    """Return the frame waiting on ``channel``, or None if there is none."""
+    queue = layer.channels.get(channel)
+    if queue is None or queue.empty():
+        return None
+    return async_to_sync(layer.receive)(channel)
+
+
+def test_enabled_flag_delivers_and_does_not_warn_noop(layer, capsys):
+    """Flag on: the frame arrives, so the command must NOT cry no-op."""
+    channel = _subscribe(layer, cn_settings.GROUP_ALL)
+
+    call_command("send_notification", "--audience=all", "live message")
+
+    frame = _received(layer, channel)
+    assert frame is not None, "message never reached the channel layer"
+    assert frame["text"] == "live message"
+
     out = capsys.readouterr().out
-    assert "No-op" in out
+    assert "No-op" not in out
+    assert "Sent" in out
+
+
+@override_settings(CHANNELS_BROADCAST_ENABLE_ALL=False)
+def test_disabled_flag_delivers_nothing_and_warns_noop(layer, capsys):
+    """Flag off: nothing is sent, and the command says so."""
+    channel = _subscribe(layer, cn_settings.GROUP_ALL)
+
+    call_command("send_notification", "--audience=all", "should not arrive")
+
+    assert _received(layer, channel) is None
+    assert "No-op" in capsys.readouterr().out
+
+
+@pytest.mark.django_db
+def test_enabled_flag_delivers_to_user_channel(layer, capsys):
+    """Same check for a targeted audience, through the real layer."""
+    user = get_user_model().objects.create_user(username="alice", password="x")
+    channel = _subscribe(layer, get_channel_name_for_user(user))
+
+    call_command("send_notification", "--audience=user", "--username=alice", "psst")
+
+    frame = _received(layer, channel)
+    assert frame is not None
+    assert frame["text"] == "psst"
+    assert "No-op" not in capsys.readouterr().out
+
+
+@pytest.mark.django_db
+@override_settings(CHANNELS_BROADCAST_ENABLE_AUTHENTICATED=False)
+def test_disabled_flag_warns_for_redirect_kind(layer, capsys):
+    """The no-op report is not message-only — redirects report it too."""
+    user = get_user_model().objects.create_user(username="alice", password="x")
+    channel = _subscribe(layer, get_channel_name_for_user(user))
+
+    call_command(
+        "send_notification",
+        "--kind=redirect",
+        "--audience=user",
+        "--username=alice",
+        "/done/",
+    )
+
+    assert _received(layer, channel) is None
+    assert "No-op" in capsys.readouterr().out
 
 
 # ==================================================== interactive prompts
