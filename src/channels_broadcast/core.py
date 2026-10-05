@@ -44,17 +44,36 @@ def get_obj_from_channel_name(name: str):
 
 
 def force_sync(async_func, *args, **kwargs):
-    """Run an async function from any context, handling nested event loops."""
+    """Run an async function from any context, without patching asyncio.
+
+    No running loop in the calling thread → ``asyncio.run`` is enough.
+
+    A running loop (an ASGI request handler, a worker thread holding a loop
+    parked by Playwright's sync API, a notebook kernel) → the coroutine goes
+    to a dedicated thread with its own fresh loop. ``asyncio.run`` refuses to
+    nest, and making it nest with ``nest_asyncio.apply()`` is not an option
+    here: that patch is global and irreversible for the whole process. It
+    swaps the task/future factories and the loop's ``_run_once`` for every
+    later caller, so a single call landing on a live loop poisons everything
+    that runs afterwards. Downstream suites hit two different order-dependent
+    failures because of it — an ``AsyncToSync`` ↔ ``nest_asyncio._run_once``
+    deadlock, and ``RuntimeError: asyncio.run() cannot be called from a
+    running event loop`` once the patch stopped helping and the ``except``
+    branch simply repeated the very same call.
+
+    A dedicated thread costs one thread per call, paid only on the
+    running-loop path — the rare one.
+    """
     import asyncio
+    from concurrent.futures import ThreadPoolExecutor
 
     try:
         asyncio.get_running_loop()
-        import nest_asyncio
-
-        nest_asyncio.apply()
-        return asyncio.run(async_func(*args, **kwargs))
     except RuntimeError:
         return asyncio.run(async_func(*args, **kwargs))
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(lambda: asyncio.run(async_func(*args, **kwargs))).result()
 
 
 def _send(channel_name: str, data: dict):

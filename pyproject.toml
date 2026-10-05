@@ -35,7 +35,6 @@ dependencies = [
     "django>=5.2",
     "channels>=4.0",
     "asgiref>=3.7",
-    "nest-asyncio>=1.6",
 ]
 
 [project.optional-dependencies]
