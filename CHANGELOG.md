@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `force_sync` no longer patches asyncio globally. When the calling thread
+  already runs an event loop, the coroutine is now executed in a dedicated
+  thread with a fresh loop instead of calling `nest_asyncio.apply()`.
+
+  That patch was global and irreversible for the process: it swapped the
+  task/future factories and the loop's `_run_once` for every later caller, so
+  a single `send_to_*` call landing on a live loop poisoned everything that
+  ran afterwards in that process. Downstream test suites hit two different
+  order-dependent failures because of it — an `AsyncToSync` ↔
+  `nest_asyncio._run_once` deadlock (a CI job hung to its 25-minute limit),
+  and `RuntimeError: asyncio.run() cannot be called from a running event
+  loop`, because the `except RuntimeError` branch repeated the very same
+  `asyncio.run` call that had just failed.
+
+  This also affected production code paths, not just tests: any
+  `send_notification` / `send_to_*` call made from an ASGI request handler
+  runs in a thread with a live loop.
+
+### Removed
+
+- The `nest-asyncio` runtime dependency — no longer needed.
+
 ## [0.3.0] - 2026-08-07
 
 > Released as a MINOR, not a patch: the return values of the **public** API
